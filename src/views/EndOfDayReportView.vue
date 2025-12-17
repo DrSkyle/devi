@@ -1,87 +1,141 @@
 <template>
-  <div class="eod-container">
-    <header class="view-header no-print">
-      <h1 class="title">Daily Closing Report</h1>
-      <p class="subtitle">Generate a final summary for any given day.</p>
-    </header>
-
-    <div class="actions-bar no-print">
-      <div class="date-picker-wrapper">
-        <label for="reportDate">Select Report Date:</label>
-        <input type="date" id="reportDate" v-model="selectedDate" @change="generateReport" />
+  <div class="eod-container p-4 max-w-5xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4 no-print"
+    >
+      <div>
+        <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">Daily Closing Report</h1>
+        <p class="text-gray-400 text-sm">Generate a final summary for any given day.</p>
       </div>
-      <button @click="printReport" class="button" :disabled="!hasData">Print Report</button>
+      <div class="flex gap-3 align-items-center">
+        <div class="flex flex-column">
+          <label for="reportDate" class="text-xs text-gray-400 mb-1">Select Date</label>
+          <Calendar
+            v-model="selectedDate"
+            dateFormat="yy-mm-dd"
+            showIcon
+            class="glass-calendar"
+            @date-select="generateReport"
+          />
+        </div>
+        <Button
+          label="Print Report"
+          icon="pi pi-print"
+          class="mt-4"
+          :disabled="!hasData"
+          @click="printReport"
+        />
+      </div>
     </div>
 
-    <div class="report-paper card">
-      <header class="report-header">
-        <h2>Daily Closing Report (Z-Report)</h2>
-        <p v-if="profile.name">{{ profile.name }}</p>
-        <p>
+    <!-- Report Paper -->
+    <div class="glass-panel p-6 report-paper" id="print-area">
+      <header class="text-center border-bottom-1 border-white-alpha-10 pb-4 mb-4">
+        <h2 class="text-2xl font-bold text-white mb-2">Daily Closing Report (Z-Report)</h2>
+        <p v-if="profile.name" class="text-lg text-primary font-medium">{{ profile.name }}</p>
+        <p class="text-gray-300 mt-2">
           <strong>Date:</strong>
           {{ new Date(selectedDate).toLocaleDateString('en-GB', { dateStyle: 'full' }) }}
         </p>
       </header>
 
-      <div v-if="isLoading" class="loading-state">
-        <p>Generating report for {{ new Date(selectedDate).toLocaleDateString() }}...</p>
+      <div v-if="isLoading" class="flex flex-column align-items-center justify-content-center py-6">
+        <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+        <p class="text-gray-400 mt-3">Generating report...</p>
       </div>
-      <div v-else-if="!hasData" class="empty-state">
-        <h2>No Transactions Found</h2>
-        <p>There were no sales or payments recorded on this day.</p>
+
+      <div v-else-if="!hasData" class="text-center py-6">
+        <i class="pi pi-file-excel text-4xl text-gray-500 mb-3"></i>
+        <h3 class="text-xl text-white mb-2">No Transactions Found</h3>
+        <p class="text-gray-400">There were no sales or payments recorded on this day.</p>
       </div>
-      <div v-else>
-        <section class="report-section">
-          <h3>Financial Summary</h3>
-          <div class="summary-item">
-            <span>Gross Sales</span>
-            <span class="value">Rs. {{ report.grossSales.toFixed(2) }}</span>
-          </div>
-          <div class="summary-item">
-            <span>Discounts</span>
-            <span class="value">- Rs. {{ report.totalDiscounts.toFixed(2) }}</span>
-          </div>
-          <div class="summary-item total-row">
-            <span>Net Sales</span>
-            <span class="value"
-              >Rs. {{ (report.grossSales - report.totalDiscounts).toFixed(2) }}</span
+
+      <div v-else class="grid">
+        <!-- Financial Summary -->
+        <div class="col-12 md:col-6">
+          <section class="mb-5">
+            <h3
+              class="text-lg font-bold text-white mb-3 border-bottom-1 border-white-alpha-10 pb-2"
             >
-          </div>
-          <div class="summary-item">
-            <span>VAT Collected</span>
-            <span class="value">Rs. {{ report.totalVat.toFixed(2) }}</span>
-          </div>
-        </section>
-        <section class="report-section">
-          <h3>Cash Reconciliation</h3>
-          <div class="summary-item">
-            <span>Cash Sales</span>
-            <span class="value">Rs. {{ report.netCashSales.toFixed(2) }}</span>
-          </div>
-          <div class="summary-item">
-            <span>Khata Payments Received</span>
-            <span class="value">Rs. {{ report.khataPayments.toFixed(2) }}</span>
-          </div>
-          <div class="summary-item">
-            <span>Cash From Returns</span>
-            <span class="value">- Rs. {{ report.totalReturns.toFixed(2) }}</span>
-          </div>
-          <div class="summary-item total-row highlight">
-            <span>Expected Cash in Drawer</span>
-            <span class="value">Rs. {{ report.expectedCash.toFixed(2) }}</span>
-          </div>
-        </section>
-        <section class="report-section">
-          <h3>Transaction Counts</h3>
-          <div class="summary-item">
-            <span>Total Bills Issued</span>
-            <span class="value">{{ report.totalBills }}</span>
-          </div>
-          <div class="summary-item">
-            <span>Voided Bills</span>
-            <span class="value danger-text">{{ report.voidedBills }}</span>
-          </div>
-        </section>
+              Financial Summary
+            </h3>
+            <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+              <span class="text-gray-300">Gross Sales</span>
+              <span class="font-medium text-white">Rs. {{ report.grossSales.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+              <span class="text-gray-300">Discounts</span>
+              <span class="font-medium text-red-300"
+                >- Rs. {{ report.totalDiscounts.toFixed(2) }}</span
+              >
+            </div>
+            <div class="flex justify-content-between py-2 mt-2 border-top-1 border-white-alpha-20">
+              <span class="font-bold text-white">Net Sales</span>
+              <span class="font-bold text-primary text-xl"
+                >Rs. {{ (report.grossSales - report.totalDiscounts).toFixed(2) }}</span
+              >
+            </div>
+            <div class="flex justify-content-between py-2 mt-2">
+              <span class="text-gray-400 text-sm">VAT Collected</span>
+              <span class="text-gray-300 text-sm">Rs. {{ report.totalVat.toFixed(2) }}</span>
+            </div>
+          </section>
+        </div>
+
+        <!-- Cash Reconciliation -->
+        <div class="col-12 md:col-6">
+          <section class="mb-5">
+            <h3
+              class="text-lg font-bold text-white mb-3 border-bottom-1 border-white-alpha-10 pb-2"
+            >
+              Cash Reconciliation
+            </h3>
+            <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+              <span class="text-gray-300">Cash Sales</span>
+              <span class="font-medium text-white">Rs. {{ report.netCashSales.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+              <span class="text-gray-300">Khata Payments Received</span>
+              <span class="font-medium text-white">Rs. {{ report.khataPayments.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+              <span class="text-gray-300">Cash From Returns</span>
+              <span class="font-medium text-red-300"
+                >- Rs. {{ report.totalReturns.toFixed(2) }}</span
+              >
+            </div>
+            <div
+              class="bg-primary-900 border-round p-3 mt-3 flex justify-content-between align-items-center"
+            >
+              <span class="font-bold text-white">Expected Cash in Drawer</span>
+              <span class="font-bold text-white text-xl"
+                >Rs. {{ report.expectedCash.toFixed(2) }}</span
+              >
+            </div>
+          </section>
+        </div>
+
+        <!-- Transaction Counts -->
+        <div class="col-12">
+          <section>
+            <h3
+              class="text-lg font-bold text-white mb-3 border-bottom-1 border-white-alpha-10 pb-2"
+            >
+              Transaction Counts
+            </h3>
+            <div class="flex gap-4">
+              <div class="glass-panel p-3 flex-1 text-center">
+                <div class="text-gray-400 text-sm mb-1">Total Bills Issued</div>
+                <div class="text-2xl font-bold text-white">{{ report.totalBills }}</div>
+              </div>
+              <div class="glass-panel p-3 flex-1 text-center">
+                <div class="text-gray-400 text-sm mb-1">Voided Bills</div>
+                <div class="text-2xl font-bold text-red-400">{{ report.voidedBills }}</div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   </div>
@@ -89,14 +143,18 @@
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { supabase } from '@/supabase'
 import { useProfileStore } from '@/stores/profile'
+
+// PrimeVue Components
+import Button from 'primevue/button'
+import Calendar from 'primevue/calendar'
+import ProgressSpinner from 'primevue/progressspinner'
 
 const profile = useProfileStore()
 const isLoading = ref(true)
 const hasData = ref(false)
 
-const selectedDate = ref(new Date().toISOString().split('T')[0])
+const selectedDate = ref(new Date())
 
 const report = reactive({
   grossSales: 0,
@@ -172,7 +230,6 @@ const generateReport = async () => {
   hasData.value = true
   report.totalReturns = (returns || []).reduce((sum, r) => sum + r.total_value, 0)
   report.totalBills = sales?.length || 0
-
   ;(sales || []).forEach((sale) => {
     if (sale.status === 'void') {
       report.voidedBills++
@@ -200,147 +257,49 @@ onMounted(generateReport)
 </script>
 
 <style>
-.actions-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-}
-.actions-bar .button {
-  width: auto;
-}
-.date-picker-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.date-picker-wrapper label {
-  font-weight: 500;
-  color: var(--color-text-light);
-}
-.date-picker-wrapper input[type='date'] {
-  width: auto;
-}
-.eod-container {
-  max-width: 800px;
-  margin: 0 auto;
-}
-.report-paper {
-  padding: 2rem;
-}
-.report-header {
-  text-align: center;
-  border-bottom: 1px dashed var(--color-border);
-  padding-bottom: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-.report-header h2 {
-  font-size: 1.5rem;
-}
-.report-header p {
-  font-size: 1rem;
-  color: var(--color-text-light);
-  margin: 0.25rem 0;
-}
-.report-section {
-  margin-bottom: 2rem;
-}
-.report-section h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.5rem;
-}
-.summary-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-surface-mute);
-}
-.summary-item:last-child {
-  border-bottom: none;
-}
-.summary-item span {
-  font-weight: 500;
-  color: var(--color-text-light);
-}
-.summary-item .value {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: var(--color-soft-cream);
-}
-.summary-item .danger-text {
-  color: var(--color-danger);
-}
-.total-row {
-  margin-top: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
-}
-.total-row span {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--color-soft-cream);
-}
-.total-row .value {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: var(--color-primary);
-}
-.highlight {
-  background-color: var(--color-primary-mute);
-  border-radius: 8px;
-  padding: 1rem;
-  border-top: none;
-  margin-top: 1rem;
-}
-.highlight .value {
-  font-size: 1.5rem;
-}
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-}
-
 @media print {
   body {
     background-color: #fff !important;
+    color: #000 !important;
   }
   .no-print,
   .app-sidebar,
-  .bottom-nav {
+  .bottom-nav,
+  .p-toast,
+  .p-confirm-dialog {
     display: none !important;
   }
   .main-content {
     margin: 0 !important;
     padding: 0 !important;
+    background: #fff !important;
   }
-  body * {
-    visibility: hidden;
-  }
-  .report-paper,
-  .report-paper * {
-    visibility: visible;
-  }
-  .report-paper {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 1rem;
-    border: none;
-    box-shadow: none;
-    background-color: #fff;
-    color: #000;
-  }
-  .report-paper * {
+  .glass-panel {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
     color: #000 !important;
+  }
+  .text-white,
+  .text-gray-300,
+  .text-gray-400,
+  .text-primary {
+    color: #000 !important;
+  }
+  .text-red-300,
+  .text-red-400 {
+    color: #d32f2f !important;
+  }
+  .bg-primary-900 {
+    background-color: #f0f0f0 !important;
+    color: #000 !important;
+    border: 1px solid #ccc;
+  }
+  .border-white-alpha-10,
+  .border-white-alpha-5,
+  .border-white-alpha-20 {
+    border-color: #ddd !important;
   }
 }
 </style>

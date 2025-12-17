@@ -1,90 +1,96 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal-content card">
-      <h2>Generate Invite Code</h2>
-      <p>
-        Select a role for the new staff member. A unique, one-time-use code will be generated for
-        them to join your pharmacy.
-      </p>
-      <form @submit.prevent="handleSubmit">
-        <div class="form-group">
-          <label for="staffRole">Assign Role</label>
-          <select id="staffRole" v-model="role" required>
-            <option value="cashier">Cashier</option>
-            <option value="pharmacist">Pharmacist</option>
-            <option value="admin">Admin</option>
-          </select>
+  <Dialog
+    visible
+    modal
+    :style="{ width: '450px' }"
+    header="Generate Invite Code"
+    @update:visible="$emit('close')"
+  >
+    <div class="flex flex-column gap-3">
+      <div v-if="!generatedCode">
+        <p class="m-0 text-600">
+          Select a role for the new staff member.
+        </p>
+
+        <div class="flex flex-column gap-2 mt-3">
+          <label for="staffRole" class="font-bold">Assign Role</label>
+          <Select
+            id="staffRole"
+            v-model="role"
+            :options="roles"
+            optionLabel="label"
+            optionValue="value"
+            class="w-full"
+          />
         </div>
-        <div class="modal-actions">
-          <button type="button" class="button-secondary" @click="$emit('close')">Cancel</button>
-          <button type="submit" :disabled="isLoading">
-            {{ isLoading ? 'Generating...' : 'Generate Code' }}
-          </button>
-        </div>
-      </form>
+      </div>
+
+      <div v-else class="text-center">
+          <p class="text-gray-400 mb-2">Ask the staff member to enter this code on their device:</p>
+          <div class="text-4xl font-mono font-bold text-primary mb-3 bg-white-alpha-10 p-3 border-round">
+              {{ generatedCode }}
+          </div>
+          <p class="text-sm text-yellow-500"><i class="pi pi-exclamation-triangle"></i> Keep this screen open until they join.</p>
+          <div class="flex align-items-center justify-content-center gap-2 mt-4">
+               <i class="pi pi-spin pi-spinner text-primary"></i>
+               <span class="text-gray-400">Waiting for connection...</span>
+          </div>
+      </div>
     </div>
-  </div>
+
+    <template #footer>
+      <div v-if="!generatedCode">
+        <Button label="Cancel" text severity="secondary" @click="$emit('close')" />
+        <Button label="Generate Invite" icon="pi pi-key" @click="handleGenerate" :loading="isLoading" />
+      </div>
+      <div v-else>
+         <Button label="Done" @click="$emit('close')" severity="success" />
+      </div>
+    </template>
+  </Dialog>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+import Dialog from 'primevue/dialog'
+import Button from 'primevue/button'
+import Select from 'primevue/select'
+import { networkService } from '@/services/NetworkService'
+import { useProfileStore } from '@/stores/profile'
 
 const emit = defineEmits(['close', 'send-invite'])
 const role = ref('cashier')
 const isLoading = ref(false)
+const generatedCode = ref(null)
+const profileStore = useProfileStore()
 
-const handleSubmit = () => {
-  emit('send-invite', { role: role.value })
+const roles = [
+  { label: 'Cashier', value: 'cashier' },
+  { label: 'Pharmacist', value: 'pharmacist' },
+  { label: 'Admin', value: 'admin' },
+]
+
+const handleGenerate = () => {
+    isLoading.value = true
+    // 1. Generate Code
+    const code = 'JOIN-' + Math.floor(1000 + Math.random() * 9000)
+    generatedCode.value = code
+    
+    // 2. Configure Host Data
+    networkService.setHostConfig({
+        pharmacyId: profileStore.pharmacyId,
+        pharmacyName: profileStore.pharmacyName,
+        pharmacyCode: profileStore.pharmacyCode
+    })
+
+    // 3. Start Hosting
+    networkService.startHosting(code)
+    
+    // Not emitting send-invite yet, effectively we are "inviting" via P2P
+    isLoading.value = false
 }
 </script>
 
 <style scoped>
-/* Styles are unchanged */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-.modal-content {
-  width: 100%;
-  max-width: 500px;
-  margin: 1rem;
-}
-.modal-content h2 {
-  margin-bottom: 1rem;
-}
-.modal-content p {
-  color: var(--color-text-light);
-  margin-bottom: 1.5rem;
-}
-.form-group {
-  margin-bottom: 2rem;
-}
-select {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background-color: var(--color-surface-mute);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  color: var(--color-text);
-  font-size: 0.95rem;
-}
-.modal-actions {
-  display: flex;
-  gap: 1rem;
-}
-.button-secondary {
-  background-color: var(--color-surface-mute);
-  color: var(--color-text-light);
-}
-.button-secondary:hover {
-  background-color: var(--color-slate-gray);
-}
+/* PrimeFlex handles layout */
 </style>

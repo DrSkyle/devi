@@ -1,0 +1,9 @@
+name = "devi-pulse-relay"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Bind the R2 Bucket
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "devi-pulse-data"
+preview_bucket_name = "devi-pulse-data-preview"

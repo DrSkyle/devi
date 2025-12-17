@@ -1,26 +1,36 @@
 <template>
-  <div class="map-container card">
-    <h3 class="map-title">Pharmacies Nearby (Devi Circle)</h3>
-    <div ref="mapElement" class="map-element"></div>
-    <p v-if="!centerCoordinates && !isLoading" class="feedback-text">
-      Your pharmacy location not set. Cannot display map.
-    </p>
-    <p
-      v-else-if="nearbyPharmacies.length === 0 && !isLoading && centerCoordinates"
-      class="feedback-text"
-    >
-      No other pharmacies found within {{ circleRadiusKm }}km.
-    </p>
-    <p v-if="isLoading" class="feedback-text">Loading map data...</p>
-  </div>
+  <Card class="map-container surface-card shadow-2 border-round-xl">
+    <template #title>
+      <div class="flex align-items-center gap-2">
+        <i class="pi pi-map text-primary text-xl"></i>
+        <span>Pharmacies Nearby (Devi Circle)</span>
+      </div>
+    </template>
+    <template #content>
+      <div ref="mapElement" class="map-element w-full border-round" style="height: 350px"></div>
+      <div v-if="!centerCoordinates && !isLoading" class="text-center p-3 text-600 font-italic">
+        Your pharmacy location not set. Cannot display map.
+      </div>
+      <div
+        v-else-if="nearbyPharmacies.length === 0 && !isLoading && centerCoordinates"
+        class="text-center p-3 text-600 font-italic"
+      >
+        No other pharmacies found within {{ circleRadiusKm }}km.
+      </div>
+      <div v-if="isLoading" class="text-center p-3 text-600 font-italic">
+        <i class="pi pi-spin pi-spinner mr-2"></i> Loading map data...
+      </div>
+    </template>
+  </Card>
 </template>
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import L from 'leaflet' // Import Leaflet library
 import 'leaflet/dist/leaflet.css' // Import Leaflet's CSS
-import { supabase } from '@/supabase' // Your Supabase client
+import { networkService } from '@/services/NetworkService'
 import { useProfileStore } from '@/stores/profile' // Your Pinia store for profile data
+import Card from 'primevue/card'
 
 const profileStore = useProfileStore()
 const mapElement = ref(null) // Template ref for the map div
@@ -43,39 +53,27 @@ const fetchMapData = async () => {
   const currentLat = profileStore.latitude
   const currentLon = profileStore.longitude
 
-  if (!currentPharmacyId) {
-    console.warn('Pharmacy ID not found in profile store.')
-    isLoading.value = false
-    return
-  }
-
+  // Mock location if missing (for dev/demo)
   if (currentLat == null || currentLon == null) {
-    console.warn('Current pharmacy location (lat/lon) not found in profile store.')
-    isLoading.value = false
-    // Map cannot be centered without coordinates. The template handles this message.
-    return
+      console.warn('Location missing, defaulting to Kathmandu center')
+      centerCoordinates.value = [27.7172, 85.3240] 
+  } else {
+      centerCoordinates.value = [currentLat, currentLon]
   }
-
-  centerCoordinates.value = [currentLat, currentLon]
 
   try {
-    // Call the Supabase RPC function to find nearby pharmacies
-    const { data: nearbyData, error: rpcError } = await supabase.rpc('find_nearby_pharmacies', {
-      current_pharmacy_id: currentPharmacyId,
-      radius_meters: circleRadiusKm.value * 1000, // Pass radius in meters
-    })
+    // Call the Network Service (P2P Discovery)
+    const peers = await networkService.getNearbyPharmacies(
+        centerCoordinates.value[0], 
+        centerCoordinates.value[1], 
+        circleRadiusKm.value
+    )
 
-    if (rpcError) throw rpcError
-
-    // Store the results (RPC function should return necessary fields including lat/lon)
-    nearbyPharmacies.value = nearbyData || []
-
-    // Initialize or update the map once data is fetched
+    nearbyPharmacies.value = peers || []
     initOrUpdateMap()
+    
   } catch (error) {
     console.error('Error fetching nearby pharmacies:', error)
-    // Optionally show a notification to the user
-    // notification.showNotification('Could not load nearby pharmacies.', 'error');
   } finally {
     isLoading.value = false
   }
@@ -192,39 +190,10 @@ watch(
 </script>
 
 <style scoped>
-.map-container {
-  padding: 1rem; /* Adjust padding as needed */
-  /* background-color: var(--color-surface); */ /* Inherited from .card */
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  margin-top: 2rem;
-  margin-bottom: 2rem; /* Add space below map */
-}
-.map-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  padding: 0 0.5rem; /* Consistent padding with map element */
-  color: var(--color-heading);
-}
-.map-element {
-  height: 350px; /* Adjust height for your layout */
-  width: 100%;
-  border-radius: 8px; /* Rounded corners for the map itself */
-  background-color: var(--color-surface-mute); /* Placeholder background */
-  z-index: 1; /* Ensure map tiles render above container background */
-}
-.feedback-text {
-  text-align: center;
-  color: var(--color-text-light);
-  padding: 1rem;
-  font-style: italic;
-}
-
 /* Leaflet Popup Styling (Optional - Customize default popups) */
 :deep(.leaflet-popup-content-wrapper) {
-  background-color: var(--color-surface-mute) !important;
-  color: var(--color-text) !important;
+  background-color: var(--surface-card) !important;
+  color: var(--text-color) !important;
   border-radius: 8px !important;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
 }
@@ -234,13 +203,13 @@ watch(
   line-height: 1.4 !important;
 }
 :deep(.leaflet-popup-tip) {
-  background-color: var(--color-surface-mute) !important;
+  background-color: var(--surface-card) !important;
 }
 :deep(.leaflet-popup-close-button) {
-  color: var(--color-text-light) !important;
+  color: var(--text-color-secondary) !important;
   padding: 6px 6px 0 0 !important;
 }
 :deep(.leaflet-popup-close-button:hover) {
-  color: var(--color-soft-cream) !important;
+  color: var(--primary-color) !important;
 }
 </style>

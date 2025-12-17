@@ -1,93 +1,173 @@
 <template>
-  <div class="receipt-container" v-if="sale && profile">
-    <div class="card receipt-paper">
-      <header class="receipt-header">
-        <h1 class="invoice-title">
-          {{ sale.status === 'paid' ? 'VAT INVOICE' : 'CREDIT INVOICE' }}
-        </h1>
-        <h2>{{ profile.name || 'Pharmacy Name' }}</h2>
-        <p v-if="profile.city">{{ profile.tole ? profile.tole + ',' : '' }} {{ profile.city }}</p>
-        <p v-if="profile.panNumber">PAN: {{ profile.panNumber }}</p>
-      </header>
-      <div class="bill-details">
-        <div><strong>Bill No:</strong> {{ sale.billNumber }}</div>
-        <div><strong>Date:</strong> {{ formatDate(sale.createdAt) }}</div>
+  <div
+    class="receipt-view-container p-4 max-w-4xl mx-auto min-h-screen flex flex-column align-items-center justify-content-center"
+  >
+    <div v-if="sale && profile" class="w-full">
+      <!-- Actions Bar -->
+      <div
+        class="flex justify-content-between align-items-center mb-4 no-print w-full max-w-30rem mx-auto"
+      >
+        <Button
+          label="Sales History"
+          icon="pi pi-arrow-left"
+          class="p-button-text text-gray-400 hover:text-white"
+          @click="router.push('/sales-history')"
+        />
+        <Button
+          label="New Sale"
+          icon="pi pi-plus"
+          class="p-button-outlined p-button-secondary"
+          @click="router.push('/record-sale')"
+        />
       </div>
-      <div v-if="customer" class="customer-details">
-        <strong>Bill To:</strong> {{ customer.name }}
+
+      <!-- Receipt Card -->
+      <div class="receipt-paper shadow-8 border-round-xl overflow-hidden mx-auto relative">
+        <!-- Print Button Overlay -->
+        <div class="absolute top-0 right-0 p-3 no-print">
+          <Button
+            icon="pi pi-print"
+            class="p-button-rounded p-button-text p-button-secondary"
+            v-tooltip.left="'Print Receipt'"
+            @click="printReceipt"
+          />
+        </div>
+
+        <header class="receipt-header text-center p-5 border-bottom-1 border-gray-200 bg-gray-50">
+          <div class="flex align-items-center justify-content-center gap-2 mb-2">
+            <i class="pi pi-heart-fill text-primary text-2xl"></i>
+            <h2 class="text-2xl font-bold text-gray-900 m-0 uppercase tracking-tight">
+              {{ profile.pharmacyName || 'Pharmacy Name' }}
+            </h2>
+          </div>
+          <p class="text-gray-600 text-sm m-0" v-if="profile.address">
+            {{ profile.address }}
+          </p>
+          <p class="text-gray-600 text-sm m-0" v-if="profile.phone">Tel: {{ profile.phone }}</p>
+          <p class="text-gray-600 text-sm mt-1 font-medium" v-if="profile.panNumber">
+            PAN: {{ profile.panNumber }}
+          </p>
+          <div
+            class="mt-3 inline-block px-3 py-1 border-round text-xs font-bold tracking-wider uppercase"
+            :class="
+              sale.status === 'paid'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-orange-100 text-orange-700'
+            "
+          >
+            {{ sale.status === 'paid' ? 'VAT INVOICE' : 'CREDIT INVOICE' }}
+          </div>
+        </header>
+
+        <div class="p-5">
+          <!-- Meta Details -->
+          <div class="flex justify-content-between text-sm mb-4 text-gray-600">
+            <div>
+              <div class="mb-1"><strong>Bill No:</strong> #{{ sale.billNumber }}</div>
+              <div><strong>Date:</strong> {{ formatDate(sale.createdAt) }}</div>
+            </div>
+            <div class="text-right" v-if="customer">
+              <div class="mb-1"><strong>Bill To:</strong></div>
+              <div class="font-bold text-gray-900">{{ customer.name }}</div>
+              <div v-if="customer.phone">{{ customer.phone }}</div>
+            </div>
+            <div class="text-right" v-else>
+              <div class="mb-1"><strong>Bill To:</strong></div>
+              <div class="font-bold text-gray-900">Walk-in Customer</div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <table class="w-full mb-4 text-sm border-collapse">
+            <thead>
+              <tr class="text-gray-500 border-bottom-1 border-gray-200">
+                <th class="text-left py-2 font-medium">Item</th>
+                <th class="text-right py-2 font-medium">Qty</th>
+                <th class="text-right py-2 font-medium">Rate</th>
+                <th class="text-right py-2 font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(item, index) in sale.items"
+                :key="index"
+                class="border-bottom-1 border-gray-100"
+              >
+                <td class="py-2 text-gray-800">{{ item.name }}</td>
+                <td class="py-2 text-right text-gray-600">{{ item.quantity }}</td>
+                <td class="py-2 text-right text-gray-600">{{ item.price.toFixed(2) }}</td>
+                <td class="py-2 text-right font-medium text-gray-900">
+                  {{ (item.quantity * item.price).toFixed(2) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Summary -->
+          <div class="flex flex-column align-items-end gap-2 text-sm">
+            <div class="flex justify-content-between w-15rem text-gray-600">
+              <span>Subtotal</span>
+              <span>Rs. {{ (sale.subtotal || 0).toFixed(2) }}</span>
+            </div>
+            <div v-if="sale.discount > 0" class="flex justify-content-between w-15rem text-red-500">
+              <span>Discount</span>
+              <span>- Rs. {{ (sale.discount || 0).toFixed(2) }}</span>
+            </div>
+            <div
+              class="flex justify-content-between w-15rem text-gray-600 border-top-1 border-gray-200 pt-2"
+            >
+              <span>Taxable Amount</span>
+              <span>Rs. {{ ((sale.subtotal || 0) - (sale.discount || 0)).toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-content-between w-15rem text-gray-600">
+              <span>VAT (13%)</span>
+              <span>Rs. {{ (sale.vatAmount || 0).toFixed(2) }}</span>
+            </div>
+            <div
+              class="flex justify-content-between w-15rem text-xl font-bold text-gray-900 mt-2 pt-2 border-top-2 border-gray-900"
+            >
+              <span>Grand Total</span>
+              <span>Rs. {{ sale.total.toFixed(2) }}</span>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="mt-6 text-center text-xs text-gray-400">
+            <p class="mb-1">Thank you for your visit!</p>
+            <p>Generated by Devi Pharmacy OS</p>
+          </div>
+        </div>
       </div>
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th class="text-right">Qty</th>
-            <th class="text-right">Rate</th>
-            <th class="text-right">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(item, index) in sale.items" :key="index">
-            <td>{{ decryptData(item.name) }}</td>
-            <td class="text-right">{{ item.quantity }}</td>
-            <td class="text-right">{{ item.price.toFixed(2) }}</td>
-            <td class="text-right">{{ (item.quantity * item.price).toFixed(2) }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="summary-section">
-        <div class="summary-row">
-          <span>Subtotal</span>
-          <span>Rs. {{ (sale.subtotal || 0).toFixed(2) }}</span>
-        </div>
-        <div v-if="sale.discount > 0" class="summary-row">
-          <span>Discount</span>
-          <span>- Rs. {{ (sale.discount || 0).toFixed(2) }}</span>
-        </div>
-        <div class="summary-row">
-          <span>Taxable Amount</span>
-          <span>Rs. {{ ((sale.subtotal || 0) - (sale.discount || 0)).toFixed(2) }}</span>
-        </div>
-        <div class="summary-row">
-          <span>VAT Amount</span>
-          <span>Rs. {{ (sale.vatAmount || 0).toFixed(2) }}</span>
-        </div>
-        <div class="summary-row total">
-          <span>Grand Total</span>
-          <span>Rs. {{ sale.total.toFixed(2) }}</span>
-        </div>
-        <div class="summary-row status">
-          <span>Status</span>
-          <span>{{ sale.status === 'paid' ? 'PAID IN CASH' : 'ADDED TO KHATA' }}</span>
-        </div>
+
+      <!-- Bottom Action -->
+      <div class="text-center mt-4 no-print">
+        <Button
+          label="Start New Sale"
+          icon="pi pi-refresh"
+          class="p-button-lg bg-primary border-none hover:bg-primary-600 shadow-4 font-bold"
+          @click="router.push('/record-sale')"
+        />
       </div>
-      <footer class="receipt-footer">
-        <p>Thank you for your visit!</p>
-      </footer>
     </div>
 
-    <div class="actions">
-      <RouterLink to="/sales-history" class="button button-secondary"
-        >&larr; Sales History</RouterLink
-      >
-      <RouterLink to="/record-sale" class="button button-secondary">New Sale</RouterLink>
-      <button @click="printReceipt" class="button">Print Receipt</button>
+    <div v-else class="text-center py-8">
+      <i class="pi pi-spin pi-spinner text-4xl text-primary mb-3"></i>
+      <p class="text-gray-400">Loading receipt details...</p>
     </div>
-  </div>
-  <div v-else class="loading-state">
-    <p>Loading receipt...</p>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
-import { db } from '../db'
-import { supabase } from '@/supabase'
+import { useRoute, useRouter } from 'vue-router'
+import { database } from '@/database'
 import { decryptData } from '@/utils/cipher'
 import { useProfileStore } from '@/stores/profile'
+import Button from 'primevue/button'
 
 const route = useRoute()
-const saleId = Number(route.params.id)
+const router = useRouter()
+const saleId = route.params.id
 
 const sale = ref(null)
 const profile = useProfileStore()
@@ -96,32 +176,62 @@ const customer = ref(null)
 const processSaleData = async (saleData) => {
   if (!saleData) return
 
-  // *** THIS IS THE FIX ***
-  // We are creating a new, clean 'sale' object and mapping the
-  // database field `bill_number` to the template variable `billNumber`.
+  // Check if it's a WatermelonDB model (has _raw) or plain object
+  const isModel = !!saleData._raw
+
+  let items = []
+  if (isModel) {
+    try {
+      items = JSON.parse(saleData.items)
+    } catch {
+      items = []
+    }
+  } else {
+    items = typeof saleData.items === 'string' ? JSON.parse(saleData.items) : saleData.items
+  }
+
   const formattedSale = {
-    ...saleData,
-    billNumber: saleData.bill_number, // The key mapping happens here
-    createdAt: saleData.created_at,
-    subtotal: saleData.subtotal !== undefined ? saleData.subtotal : saleData.total,
-    vatAmount: saleData.vat_amount || 0,
-    discount: saleData.discount || 0,
+    ...saleData, // Spread properties (works for plain object, but not for Model getters)
+    billNumber: isModel ? saleData.billNumber : saleData.bill_number,
+    createdAt: isModel ? saleData.createdAt : saleData.created_at,
+    subtotal: isModel
+      ? saleData.subtotal
+      : saleData.subtotal !== undefined
+        ? saleData.subtotal
+        : saleData.total,
+    vatAmount: isModel ? saleData.taxTotal : saleData.vat_amount || 0,
+    discount: isModel ? saleData.discount : saleData.discount || 0,
+    items: items.map((item) => ({
+      ...item,
+      name: decryptData(item.name),
+    })),
+    total: isModel ? saleData.total : saleData.total,
   }
   sale.value = formattedSale
 
-  const customerIdToFetch = saleData.customer_id || saleData.customerId
+  const customerIdToFetch = isModel
+    ? saleData.customerId
+    : saleData.customer_id || saleData.customerId
+
   if (customerIdToFetch) {
-    let fetchedCustomer = await db.customers.get(customerIdToFetch)
-    if (!fetchedCustomer) {
-      const { data } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('_id', customerIdToFetch)
-        .single()
-      fetchedCustomer = data
+    let fetchedCustomer = null
+    try {
+      fetchedCustomer = await database.get('customers').find(customerIdToFetch)
+    } catch {
+      console.warn('Customer not found locally')
     }
+
     if (fetchedCustomer) {
-      customer.value = { ...fetchedCustomer, name: decryptData(fetchedCustomer.name) }
+      // Handle Model vs Object for customer
+      const isCustModel = !!fetchedCustomer._raw
+      const name = isCustModel ? fetchedCustomer.name : fetchedCustomer.name
+      const phone = isCustModel ? fetchedCustomer.phone : fetchedCustomer.phone
+
+      customer.value = {
+        ...fetchedCustomer, // Spread if object
+        name: decryptData(name),
+        phone: decryptData(phone),
+      }
     }
   }
 }
@@ -132,17 +242,17 @@ onMounted(async () => {
 
   if (tempSaleJSON) {
     const tempSale = JSON.parse(tempSaleJSON)
-    if (tempSale._id === saleId) {
+    if (tempSale.id === saleId || tempSale._id === saleId) {
       fetchedSale = tempSale
     }
     sessionStorage.removeItem('temp_sale_data')
   }
 
   if (!fetchedSale) {
-    fetchedSale = await db.sales.get(saleId)
-    if (!fetchedSale) {
-      const { data } = await supabase.from('sales').select('*').eq('_id', saleId).single()
-      fetchedSale = data
+    try {
+      fetchedSale = await database.get('sales').find(saleId)
+    } catch {
+      console.warn('Sale not found locally')
     }
   }
 
@@ -165,137 +275,46 @@ const printReceipt = () => {
 }
 </script>
 
-<style>
-/* Styles are unchanged */
-.button-secondary {
-  background-color: var(--color-surface-mute);
-  color: var(--color-text-light);
-  border: 1px solid var(--color-border);
-}
-.button-secondary:hover {
-  background-color: var(--color-slate-gray);
-}
-.text-right {
-  text-align: right !important;
-}
-.invoice-title {
-  font-size: 1rem;
-  font-weight: bold;
-  letter-spacing: 2px;
-  margin-bottom: 1rem;
-}
-.receipt-header h2 {
-  font-size: 1.5rem;
-  margin: 0;
-}
-.customer-details {
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-.back-link:hover {
-  color: var(--color-primary);
-}
-.summary-row.status {
-  font-weight: bold;
-}
-.receipt-container {
-  max-width: 400px;
-  margin: 0 auto;
-  font-family: 'Courier New', Courier, monospace;
-}
+<style scoped>
 .receipt-paper {
-  padding: 1.5rem;
-  background-color: #fff;
-  color: #000;
-}
-.receipt-header {
-  text-align: center;
-  border-bottom: 2px dashed #000;
-  padding-bottom: 1rem;
-  margin-bottom: 1rem;
-}
-.receipt-header p {
-  margin: 0.25rem 0;
-  font-size: 0.9rem;
-}
-.bill-details {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-.items-table {
+  background: white;
+  color: #1f2937; /* gray-800 */
+  max-width: 400px;
   width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
 }
-.items-table th,
-.items-table td {
-  text-align: left;
-  padding: 0.5rem 0;
-  font-size: 0.9rem;
-}
-.items-table thead {
-  border-bottom: 1px solid #000;
-}
-.summary-section {
-  border-top: 2px dashed #000;
-  padding-top: 1rem;
-}
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-.summary-row.total {
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-.receipt-footer {
-  text-align: center;
-  margin-top: 2rem;
-}
-.actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-  flex-wrap: wrap;
-}
-.loading-state {
-  text-align: center;
-  padding: 2rem;
-}
+
 @media print {
-  body {
-    background-color: #fff;
-  }
-  .app-sidebar,
-  .bottom-nav,
-  .actions,
-  .view-header {
+  .no-print {
     display: none !important;
   }
-  .main-content {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
+
   body * {
     visibility: hidden;
   }
+
   .receipt-paper,
   .receipt-paper * {
     visibility: visible;
   }
+
   .receipt-paper {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+    max-width: 100%;
     margin: 0;
     padding: 0;
     border: none;
-    box-shadow: none;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure text is black for printing */
+  .text-gray-600,
+  .text-gray-500,
+  .text-gray-400 {
+    color: #000 !important;
   }
 }
 </style>

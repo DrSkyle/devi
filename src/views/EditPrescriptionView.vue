@@ -1,95 +1,148 @@
 <template>
-  <div class="edit-prescription-container">
-    <div v-if="prescription">
-      <header class="view-header">
-        <RouterLink to="/prescriptions" class="back-link"
-          >&larr; Back to Prescription Hub</RouterLink
-        >
-        <h1 class="title">Edit Prescription</h1>
-        <p class="subtitle">Update details for {{ prescription.patient_name }}'s prescription.</p>
-      </header>
-
-      <div class="card">
-        <form @submit.prevent="updatePrescription">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="patientName">Patient Name</label>
-              <input id="patientName" type="text" v-model="prescription.patient_name" required />
-            </div>
-            <div class="form-group">
-              <label for="doctorName">Doctor's Name</label>
-              <input id="doctorName" type="text" v-model="prescription.doctor_name" required />
-            </div>
-          </div>
-
-          <h3 class="medicines-title">Medicines</h3>
-          <div class="medicines-list">
-            <div v-for="(item, index) in prescription.items" :key="index" class="medicine-item">
-              <div class="search-wrapper">
-                <label :for="`med-name-${index}`">Medicine Name</label>
-                <input
-                  :id="`med-name-${index}`"
-                  type="text"
-                  v-model="item.name"
-                  @input="(e) => searchInventory(e.target.value, index)"
-                  placeholder="Medicine Name"
-                  required
-                />
-                <ul
-                  v-if="searchResults[index] && searchResults[index].length > 0"
-                  class="search-results"
-                >
-                  <li
-                    v-for="result in searchResults[index]"
-                    :key="result.key"
-                    @click="selectMedicine(index, result.name)"
-                  >
-                    {{ result.name }}
-                  </li>
-                </ul>
-              </div>
-              <div class="quantity-wrapper">
-                <label :for="`med-qty-${index}`">Quantity</label>
-                <input
-                  :id="`med-qty-${index}`"
-                  type="number"
-                  v-model.number="item.quantity"
-                  placeholder="Qty"
-                  min="1"
-                  required
-                />
-              </div>
-              <button type="button" @click="removeMedicine(index)" class="remove-med-btn">
-                &times;
-              </button>
-            </div>
-          </div>
-
-          <button type="button" @click="addMedicine" class="button-secondary add-med-btn">
-            + Add Another Medicine
-          </button>
-
-          <div class="form-actions">
-            <button type="submit" class="button" :disabled="isSaving">
-              {{ isSaving ? 'Saving Changes...' : 'Save Changes' }}
-            </button>
-          </div>
-        </form>
+  <div class="edit-prescription-container p-4 max-w-5xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <Button
+          label="Back to Hub"
+          icon="pi pi-arrow-left"
+          class="p-button-text p-button-plain mb-2 pl-0"
+          @click="router.push('/prescriptions')"
+        />
+        <h1 class="text-4xl font-thin text-white mb-2 tracking-tight">Edit Prescription</h1>
+        <p class="text-gray-400 text-lg" v-if="prescription">
+          Update details for
+          <span class="text-primary font-bold">{{ prescription.patient_name }}</span>
+        </p>
       </div>
     </div>
-    <div v-else class="loading-state">
-      <p>Loading prescription...</p>
+
+    <div v-if="prescription" class="glass-panel p-5 fadein animation-duration-300">
+      <form @submit.prevent="updatePrescription">
+        <div class="flex flex-column md:flex-row gap-5 mb-5">
+          <div class="flex-1">
+            <label for="patientName" class="block text-gray-300 font-medium mb-2"
+              >Patient Name</label
+            >
+            <span class="p-input-icon-left w-full">
+              <i class="pi pi-user" />
+              <InputText
+                id="patientName"
+                v-model="prescription.patient_name"
+                class="w-full"
+                required
+              />
+            </span>
+          </div>
+          <div class="flex-1">
+            <label for="doctorName" class="block text-gray-300 font-medium mb-2"
+              >Doctor's Name</label
+            >
+            <span class="p-input-icon-left w-full">
+              <i class="pi pi-user-edit" />
+              <InputText
+                id="doctorName"
+                v-model="prescription.doctor_name"
+                class="w-full"
+                required
+              />
+            </span>
+          </div>
+        </div>
+
+        <div class="border-top-1 border-white-alpha-10 pt-5 mt-5">
+          <h3 class="text-xl font-bold text-white mb-4 flex align-items-center gap-2">
+            <i class="pi pi-list text-primary"></i> Medicines
+          </h3>
+
+          <div class="flex flex-column gap-3 mb-4">
+            <div
+              v-for="(item, index) in prescription.items"
+              :key="index"
+              class="glass-panel p-3 flex flex-column md:flex-row gap-3 align-items-end md:align-items-center"
+            >
+              <div class="flex-grow-1 w-full">
+                <label class="block text-gray-400 text-xs mb-1">Medicine Name</label>
+                <AutoComplete
+                  v-model="item.name"
+                  :suggestions="searchResults[index]"
+                  @complete="(e) => searchInventory(e.query, index)"
+                  field="name"
+                  placeholder="Search medicine..."
+                  class="w-full"
+                  inputClass="w-full"
+                  @item-select="(e) => selectMedicine(index, e.value.name)"
+                >
+                  <template #option="slotProps">
+                    <div class="flex align-items-center">
+                      <div>{{ slotProps.option.name }}</div>
+                    </div>
+                  </template>
+                </AutoComplete>
+              </div>
+              <div class="w-full md:w-8rem">
+                <label class="block text-gray-400 text-xs mb-1">Quantity</label>
+                <InputNumber
+                  v-model="item.quantity"
+                  showButtons
+                  buttonLayout="horizontal"
+                  :min="1"
+                  inputClass="w-full text-center"
+                  class="w-full"
+                />
+              </div>
+              <Button
+                icon="pi pi-trash"
+                class="p-button-rounded p-button-danger p-button-text"
+                @click="removeMedicine(index)"
+                v-if="prescription.items.length > 1"
+              />
+            </div>
+          </div>
+
+          <div class="flex gap-3 mb-5">
+            <Button
+              label="Add Medicine"
+              icon="pi pi-plus"
+              class="p-button-outlined w-full md:w-auto"
+              @click="addMedicine"
+            />
+          </div>
+        </div>
+
+        <div class="flex justify-content-end border-top-1 border-white-alpha-10 pt-4">
+          <Button
+            type="submit"
+            label="Save Changes"
+            icon="pi pi-check"
+            :loading="isSaving"
+            class="w-full md:w-auto"
+          />
+        </div>
+      </form>
+    </div>
+
+    <div v-else class="flex align-items-center justify-content-center h-20rem">
+      <ProgressSpinner />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onActivated } from 'vue'
-import { supabase } from '@/supabase'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useNotificationStore } from '@/stores/notification'
 import { useProfileStore } from '@/stores/profile'
 import { decryptData, encryptData } from '@/utils/cipher'
+
+// PrimeVue Components
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import InputNumber from 'primevue/inputnumber'
+import AutoComplete from 'primevue/autocomplete'
+import ProgressSpinner from 'primevue/progressspinner'
 
 const route = useRoute()
 const router = useRouter()
@@ -111,8 +164,6 @@ onActivated(async () => {
     .single()
 
   if (data) {
-    // *** DECRYPTION FIX ***
-    // Decrypt the medicine names when the data is loaded.
     prescription.value = {
       ...data,
       items: data.items.map((item) => ({
@@ -140,23 +191,24 @@ const removeMedicine = (index) => {
   }
 }
 
-// *** NEW FEATURE: INVENTORY SEARCH ***
-const searchInventory = (name, index) => {
+const searchInventory = (query, index) => {
   clearTimeout(inventorySearchDebounce)
   inventorySearchDebounce = setTimeout(async () => {
-    if (name.length < 2) {
+    if (!query || query.length < 2) {
       searchResults.value[index] = []
       return
     }
-    const { data } = await supabase
+
+    const { data: allItems } = await supabase
       .from('inventory')
       .select('name')
       .eq('pharmacy_id', profileStore.pharmacyId)
-      .ilike('name', `%${encryptData(name)}%`) // Search using encrypted name
 
-    if (data) {
-      const uniqueNames = [...new Set(data.map((i) => decryptData(i.name)))]
-      searchResults.value[index] = uniqueNames.map((n) => ({ name: n, key: n }))
+    if (allItems) {
+      searchResults.value[index] = allItems
+        .map((item) => ({ name: decryptData(item.name) }))
+        .filter((item) => item.name.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, 10)
     }
   }, 300)
 }
@@ -182,8 +234,6 @@ const updatePrescription = async () => {
     const updateData = {
       patient_name: prescription.value.patient_name,
       doctor_name: prescription.value.doctor_name,
-      // *** ENCRYPTION FIX ***
-      // Re-encrypt the medicine names before saving.
       items: prescription.value.items.map((item) => ({
         ...item,
         name: encryptData(item.name),
@@ -208,6 +258,7 @@ const updatePrescription = async () => {
     notification.showNotification('Prescription updated successfully!')
     router.push('/prescriptions')
   } catch (error) {
+    console.error(error)
     notification.showNotification('Failed to update prescription.', 'error')
   } finally {
     isSaving.value = false
@@ -216,102 +267,5 @@ const updatePrescription = async () => {
 </script>
 
 <style scoped>
-/* Using the cleaner styles from AddPrescriptionView */
-.edit-prescription-container {
-  max-width: 800px;
-  margin: 0 auto;
-}
-.back-link {
-  display: block;
-  margin-bottom: 1rem;
-  color: var(--color-text-light);
-  text-decoration: none;
-}
-.card {
-  padding: 2rem 2.5rem;
-}
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-.medicines-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-top: 2.5rem;
-  margin-bottom: 1.5rem;
-  border-top: 1px solid var(--color-border);
-  padding-top: 1.5rem;
-}
-.medicine-item {
-  display: flex;
-  align-items: flex-end;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-radius: 8px;
-  background-color: var(--color-surface-mute);
-  margin-bottom: 1rem;
-}
-.search-wrapper {
-  flex-grow: 1;
-  position: relative;
-}
-.quantity-wrapper {
-  width: 100px;
-  flex-shrink: 0;
-}
-.form-group label,
-.search-wrapper label,
-.quantity-wrapper label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  font-size: 0.9rem;
-}
-.remove-med-btn {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-light);
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.5rem;
-  line-height: 1;
-}
-.add-med-btn {
-  width: 100%;
-  margin-top: 0.5rem;
-}
-.form-actions {
-  margin-top: 2.5rem;
-  border-top: 1px solid var(--color-border);
-  padding-top: 1.5rem;
-  display: flex;
-  justify-content: flex-end;
-}
-.search-results {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  list-style: none;
-  padding: 0.5rem 0;
-  margin-top: 0.5rem;
-  max-height: 200px;
-  overflow-y: auto;
-}
-.search-results li {
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-}
-.search-results li:hover {
-  background-color: var(--color-primary);
-  color: var(--color-midnight-blue);
-}
+/* PrimeVue overrides are handled globally */
 </style>

@@ -1,43 +1,69 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal-content card">
-      <h2>Dispense Options</h2>
-      <p class="subtitle">Some items on this prescription are out of stock.</p>
+  <Dialog
+    visible
+    modal
+    :style="{ width: '500px' }"
+    header="Dispense Options"
+    @update:visible="$emit('close')"
+  >
+    <div class="flex flex-column gap-4">
+      <p class="m-0 text-600">Some items on this prescription are out of stock.</p>
 
       <div v-if="inStockItems.length > 0">
-        <h4>In Stock:</h4>
-        <ul class="item-list in-stock">
-          <li v-for="(item, i) in inStockItems" :key="i">
-            {{ item.name }} (Qty: {{ item.quantity }})
-          </li>
-        </ul>
+        <div class="font-bold mb-2">In Stock:</div>
+        <div class="flex flex-column gap-2">
+          <div
+            v-for="(item, i) in inStockItems"
+            :key="i"
+            class="p-3 surface-100 border-round border-left-3 border-teal-500"
+          >
+            <span class="font-medium">{{ item.name }}</span>
+            <span class="text-600 ml-2">(Qty: {{ item.quantity }})</span>
+          </div>
+        </div>
       </div>
 
       <div v-if="outOfStockItems.length > 0">
-        <h4>Out of Stock:</h4>
-        <ul class="item-list out-of-stock">
-          <li v-for="(item, i) in outOfStockItems" :key="i">
-            {{ item.name }} (Need: {{ item.quantity }}, Have: {{ item.have }})
-          </li>
-        </ul>
-      </div>
-
-      <div class="modal-actions">
-        <button class="button-secondary" @click="$emit('close')">Cancel</button>
-        <button
-          class="button-secondary"
-          v-if="inStockItems.length > 0"
-          @click="$emit('dispense-partial')"
-        >
-          Dispense In-Stock Only
-        </button>
-        <button class="button" @click="$emit('find-network')">Find & Order From Network</button>
+        <div class="font-bold mb-2">Out of Stock:</div>
+        <div class="flex flex-column gap-2">
+          <div
+            v-for="(item, i) in outOfStockItems"
+            :key="i"
+            class="p-3 surface-100 border-round border-left-3 border-red-500"
+          >
+            <span class="font-medium">{{ item.name }}</span>
+            <span class="text-600 ml-2">(Need: {{ item.quantity }}, Have: {{ item.have }})</span>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+
+    <template #footer>
+      <div class="flex flex-column sm:flex-row gap-2 w-full">
+        <Button label="Cancel" text severity="secondary" @click="$emit('close')" class="flex-1" />
+        <Button
+          v-if="inStockItems.length > 0"
+          label="Dispense In-Stock Only"
+          icon="pi pi-check"
+          severity="warning"
+          @click="$emit('dispense-partial')"
+          class="flex-1"
+        />
+        <Button
+          label="Find in Network"
+          icon="pi pi-search"
+          @click="$emit('find-network')"
+          class="flex-1"
+        />
+      </div>
+    </template>
+  </Dialog>
 </template>
 
 <script setup>
+import Dialog from 'primevue/dialog'
+import Button from 'primevue/button'
+
 defineProps({
   inStockItems: { type: Array, required: true },
   outOfStockItems: { type: Array, required: true },
@@ -46,45 +72,5 @@ defineEmits(['close', 'dispense-partial', 'find-network'])
 </script>
 
 <style scoped>
-.modal-content {
-  width: 100%;
-  max-width: 500px;
-}
-.subtitle {
-  color: var(--color-text-light);
-  margin-bottom: 2rem;
-}
-h4 {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-.item-list {
-  list-style: none;
-  padding: 0;
-  margin-bottom: 1.5rem;
-}
-.item-list li {
-  background-color: var(--color-surface-mute);
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-}
-.in-stock li {
-  border-left: 3px solid var(--color-peacock-teal);
-}
-.out-of-stock li {
-  border-left: 3px solid var(--color-danger);
-}
-.modal-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 2rem;
-  border-top: 1px solid var(--color-border);
-  padding-top: 1.5rem;
-}
-.modal-actions button {
-  width: auto;
-  flex-grow: 1;
-}
+/* PrimeFlex handles layout */
 </style>

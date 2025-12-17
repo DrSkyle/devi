@@ -1,0 +1,13 @@
+{
+  "name": "devi-pulse-relay",
+  "version": "1.0.0",
+  "description": "Serverless Relay for Devi Network",
+  "main": "worker.js",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

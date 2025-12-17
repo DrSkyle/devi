@@ -1,11 +1,13 @@
 <template>
-  <div class="audit-log-container">
-    <header class="view-header">
-      <h1 class="title">Activity Log</h1>
-      <p class="subtitle">A complete history of all actions performed in the app.</p>
-    </header>
-
-    <div class="actions-bar">
+  <div class="audit-log-container p-4 max-w-7xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">Activity Log</h1>
+        <p class="text-gray-400 text-sm">A complete history of all actions performed in the app.</p>
+      </div>
       <DataExporter
         :data="formattedLogs"
         :file-name="`activity_log_${new Date().toISOString().split('T')[0]}.csv`"
@@ -13,33 +15,54 @@
       />
     </div>
 
-    <div class="card">
-      <div v-if="logs.length > 0" class="log-list">
-        <div v-for="log in logs" :key="log._id" class="log-item">
-          <div class="log-header">
-            <span class="log-action">{{ formatAction(log.action) }}</span>
-            <span class="log-timestamp">{{ formatDate(log.timestamp) }}</span>
-          </div>
-          <div class="log-details">
-            <p><strong>User:</strong> {{ log.userName || 'System' }}</p>
-          </div>
-        </div>
-      </div>
-      <div v-else class="empty-state">
-        <p>No activity has been recorded yet.</p>
-      </div>
+    <div v-if="logs.length > 0" class="glass-panel p-0 overflow-hidden">
+      <DataTable
+        :value="logs"
+        responsiveLayout="scroll"
+        class="glass-table"
+        :paginator="true"
+        :rows="10"
+        :rowHover="true"
+      >
+        <Column field="timestamp" header="Timestamp" sortable>
+          <template #body="{ data }">
+            <span class="text-gray-300">{{ formatDate(data.timestamp) }}</span>
+          </template>
+        </Column>
+        <Column field="action" header="Action" sortable>
+          <template #body="{ data }">
+            <span class="font-bold text-white">{{ formatAction(data.action) }}</span>
+          </template>
+        </Column>
+        <Column field="userName" header="User" sortable>
+          <template #body="{ data }">
+            <span class="text-primary">{{ data.userName || 'System' }}</span>
+          </template>
+        </Column>
+        <Column field="details" header="Details">
+          <template #body="{ data }">
+            <span class="text-gray-400 text-sm">{{ JSON.stringify(data.details) }}</span>
+          </template>
+        </Column>
+      </DataTable>
+    </div>
+
+    <div v-else class="glass-panel p-6 text-center">
+      <i class="pi pi-history text-5xl text-gray-500 mb-3"></i>
+      <p class="text-gray-400">No activity has been recorded yet.</p>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onActivated, computed } from 'vue'
-import { supabase } from '@/supabase'
 import DataExporter from '@/components/DataExporter.vue'
-import { useProfileStore } from '@/stores/profile'
+// import { useProfileStore } from '@/stores/profile' // Removed unused import
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 
 const logs = ref([])
-const profileStore = useProfileStore()
+// const profileStore = useProfileStore() // Removed unused store
 
 const fetchLogs = async () => {
   const {
@@ -66,19 +89,16 @@ const fetchLogs = async () => {
 onActivated(fetchLogs)
 
 const formatDate = (dateString) => {
-  // This function remains the same
   return new Date(dateString).toLocaleString('en-NP', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
 }
 const formatAction = (action) => {
-  // This function remains the same
   return action.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
 }
 
 const formattedLogs = computed(() => {
-  // This computed property remains the same
   return logs.value.map((log) => ({
     Timestamp: formatDate(log.timestamp),
     User: log.userName,
@@ -89,52 +109,5 @@ const formattedLogs = computed(() => {
 </script>
 
 <style scoped>
-.actions-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1.5rem;
-}
-.card {
-  padding: 0;
-  margin-top: 1rem;
-}
-.log-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.log-item {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-}
-.log-item:last-child {
-  border-bottom: none;
-}
-.log-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.log-action {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: var(--color-soft-cream);
-}
-.log-timestamp {
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-}
-.log-details p {
-  margin: 0.25rem 0;
-  color: var(--color-light-slate);
-}
-.log-details strong {
-  color: var(--color-text-light);
-}
-.empty-state {
-  text-align: center;
-  padding: 3rem 2rem;
-  color: var(--color-text-light);
-}
+/* Utility classes handle most styles */
 </style>

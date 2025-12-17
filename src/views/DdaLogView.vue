@@ -1,65 +1,100 @@
 <template>
-  <div class="dda-log-container">
-    <header class="view-header">
-      <h1 class="title">Controlled Substance Log (DDA)</h1>
-      <p class="subtitle">An immutable log of all controlled substances dispensed.</p>
-    </header>
-
-    <div class="actions-bar">
-      <button @click="exportToPDF" class="button-secondary" :disabled="logs.length === 0">
-        Export as PDF
-      </button>
+  <div class="dda-log-container p-4 max-w-7xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">
+          Controlled Substance Log (DDA)
+        </h1>
+        <p class="text-gray-400 text-sm">
+          An immutable log of all controlled substances dispensed.
+        </p>
+      </div>
+      <Button
+        label="Export as PDF"
+        icon="pi pi-file-pdf"
+        @click="exportToPDF"
+        :disabled="logs.length === 0"
+        class="p-button-outlined p-button-secondary"
+      />
     </div>
 
-    <div class="card">
-      <div v-if="isLoading" class="loading-state">
-        <p>Loading logbook...</p>
-      </div>
-      <div v-else-if="logs.length === 0" class="empty-state">
-        <p>No controlled substances have been dispensed yet.</p>
-      </div>
-      <div v-else class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Date & Time</th>
-              <th>Medicine</th>
-              <th>Qty</th>
-              <th>Patient</th>
-              <th>Doctor</th>
-              <th>Staff</th>
-              <th>Hash</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="log in logs"
-              :key="log._id"
-              @click="viewHash(log)"
-              title="Click to verify hash"
+    <div v-if="isLoading" class="flex flex-column align-items-center justify-content-center p-6">
+      <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+      <p class="text-gray-400 mt-3">Loading logbook...</p>
+    </div>
+
+    <div v-else-if="logs.length === 0" class="glass-panel p-6 text-center">
+      <i class="pi pi-shield text-5xl text-gray-500 mb-3"></i>
+      <p class="text-gray-400">No controlled substances have been dispensed yet.</p>
+    </div>
+
+    <div v-else class="glass-panel p-0 overflow-hidden">
+      <DataTable
+        :value="logs"
+        responsiveLayout="scroll"
+        class="glass-table"
+        :paginator="true"
+        :rows="10"
+        :rowHover="true"
+        @row-click="onRowClick"
+      >
+        <Column field="created_at" header="Date & Time" sortable>
+          <template #body="{ data }">
+            <span class="text-gray-300">{{ formatDate(data.created_at) }}</span>
+          </template>
+        </Column>
+        <Column field="medicine_name" header="Medicine" sortable>
+          <template #body="{ data }">
+            <span class="font-bold text-white">{{ data.medicine_name }}</span>
+          </template>
+        </Column>
+        <Column field="quantity_dispensed" header="Qty" sortable class="text-right">
+          <template #body="{ data }">
+            <span class="text-primary font-bold">{{ data.quantity_dispensed }}</span>
+          </template>
+        </Column>
+        <Column field="patient_name" header="Patient" sortable>
+          <template #body="{ data }">
+            <span class="text-white">{{ data.patient_name }}</span>
+          </template>
+        </Column>
+        <Column field="doctor_name" header="Doctor" sortable>
+          <template #body="{ data }">
+            <span class="text-gray-300">{{ data.doctor_name }}</span>
+          </template>
+        </Column>
+        <Column field="staff_name" header="Staff" sortable>
+          <template #body="{ data }">
+            <span class="text-gray-400">{{ data.staff_name }}</span>
+          </template>
+        </Column>
+        <Column field="current_hash" header="Hash">
+          <template #body="{ data }">
+            <span class="font-mono text-xs text-gray-500"
+              >{{ data.current_hash.substring(0, 8) }}...</span
             >
-              <td data-label="Date">{{ formatDate(log.created_at) }}</td>
-              <td data-label="Medicine">{{ log.medicine_name }}</td>
-              <td data-label="Qty">{{ log.quantity_dispensed }}</td>
-              <td data-label="Patient">{{ log.patient_name }}</td>
-              <td data-label="Doctor">{{ log.doctor_name }}</td>
-              <td data-label="Staff">{{ log.staff_name }}</td>
-              <td data-label="Hash" class="hash-cell">{{ log.current_hash.substring(0, 8) }}...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          </template>
+        </Column>
+      </DataTable>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onActivated } from 'vue'
-import { supabase } from '@/supabase'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
 import { useProfileStore } from '@/stores/profile'
 import { usePromptStore } from '@/stores/prompt'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Button from 'primevue/button'
+import ProgressSpinner from 'primevue/progressspinner'
 
 const profile = useProfileStore()
 const prompt = usePromptStore()
@@ -69,12 +104,28 @@ const logs = ref([])
 onActivated(async () => {
   isLoading.value = true
   if (profile.pharmacyId) {
-    const { data } = await supabase
-      .from('dda_logs')
-      .select('*')
-      .eq('pharmacy_id', profile.pharmacyId)
-      .order('created_at', { ascending: false })
-    logs.value = data || []
+    try {
+      const ddaLogs = await database
+        .get('dda_logs')
+        .query(Q.where('pharmacy_id', profile.pharmacyId), Q.sortBy('created_at', Q.desc))
+        .fetch()
+
+      logs.value = ddaLogs.map((log) => ({
+        ...log._raw,
+        id: log.id,
+        created_at: log.createdAt,
+        medicine_name: log.medicineName,
+        quantity_dispensed: log.quantityDispensed,
+        patient_name: log.patientName,
+        doctor_name: log.doctorName,
+        staff_name: log.staffName,
+        current_hash: log.currentHash,
+        previous_hash: log.previousHash,
+      }))
+    } catch (error) {
+      console.error('Error fetching DDA logs', error)
+      logs.value = []
+    }
   }
   isLoading.value = false
 })
@@ -84,6 +135,10 @@ const formatDate = (dateString) => {
     dateStyle: 'short',
     timeStyle: 'short',
   })
+}
+
+const onRowClick = (event) => {
+  viewHash(event.data)
 }
 
 const viewHash = (log) => {
@@ -125,83 +180,5 @@ const exportToPDF = () => {
 </script>
 
 <style scoped>
-.actions-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1.5rem;
-}
-.actions-bar .button-secondary {
-  width: auto;
-}
-.card {
-  padding: 0;
-}
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-tbody tr {
-  cursor: pointer;
-}
-tbody tr:hover {
-  background-color: var(--color-surface-mute);
-}
-thead {
-  background-color: var(--color-surface-mute);
-}
-.hash-cell {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: var(--color-text-light);
-}
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-light);
-}
-
-@media (max-width: 768px) {
-  thead {
-    display: none;
-  }
-  tr {
-    display: block;
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    margin-bottom: 1rem;
-    padding: 1rem;
-  }
-  td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0.5rem;
-    border-bottom: 1px solid var(--color-surface-mute);
-    white-space: normal;
-    text-align: right;
-  }
-  tr td:last-child {
-    border-bottom: none;
-  }
-  td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--color-text-light);
-    padding-right: 1rem;
-    text-align: left;
-  }
-}
+/* Utility classes handle most styles */
 </style>

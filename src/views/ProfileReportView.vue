@@ -1,110 +1,206 @@
 <template>
-  <div class="profit-report-container">
-    <header class="view-header">
-      <RouterLink to="/reports" class="back-link">&larr; Back to Reports</RouterLink>
-      <h1 class="title">Profitability Report</h1>
-      <p class="subtitle">Analyze your revenue, costs, and profit margins.</p>
-    </header>
-
-    <div class="card">
-      <div class="filter-bar">
-        <div class="date-picker-wrapper">
-          <label for="startDate">From:</label>
-          <input type="date" id="startDate" v.model="dateRange.start" />
-        </div>
-        <div class="date-picker-wrapper">
-          <label for="endDate">To:</label>
-          <input type="date" id="endDate" v.model="dateRange.end" />
-        </div>
-        <DataExporter
-          :data="formattedItemData"
-          :file-name="`Profit_Report_${dateRange.start}_to_${dateRange.end}.csv`"
-          button-text="Export Item Data (CSV)"
-        />
+  <div class="profit-report-container p-4 max-w-7xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <RouterLink
+          to="/reports"
+          class="no-underline text-gray-400 hover:text-white mb-2 inline-block transition-colors"
+        >
+          <i class="pi pi-arrow-left mr-2"></i>Back to Reports
+        </RouterLink>
+        <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">Profitability Report</h1>
+        <p class="text-gray-400 text-sm">Analyze your revenue, costs, and profit margins.</p>
       </div>
+      <DataExporter
+        :data="formattedItemData"
+        :file-name="`Profit_Report_${dateRange.start}_to_${dateRange.end}.csv`"
+        button-text="Export CSV"
+      />
+    </div>
 
-      <div v-if="isLoading" class="loading-state">
-        <p>Generating report...</p>
-      </div>
-      <div v-else-if="!hasData" class="empty-state">
-        <p>No sales data found for the selected period.</p>
-      </div>
-      <div v-else>
-        <div class="stat-grid">
-          <div class="stat-card">
-            <h2><span class="currency">Rs.</span> {{ totalRevenue.toFixed(2) }}</h2>
-            <p>Total Net Revenue</p>
-          </div>
-          <div class="stat-card">
-            <h2><span class="currency">Rs.</span> {{ totalCogs.toFixed(2) }}</h2>
-            <p>Total Cost of Goods (COGS)</p>
-          </div>
-          <div class="stat-card profit-card">
-            <h2><span class="currency">Rs.</span> {{ totalProfit.toFixed(2) }}</h2>
-            <p>Total Profit</p>
-          </div>
-          <div class="stat-card">
-            <h2>{{ profitMargin.toFixed(1) }}<span class="currency">%</span></h2>
-            <p>Net Profit Margin</p>
-          </div>
+    <!-- Filter Bar -->
+    <div class="glass-panel p-4 mb-6">
+      <div class="flex flex-column md:flex-row gap-4 align-items-end">
+        <div class="flex-1 w-full">
+          <label for="startDate" class="block text-sm font-medium text-gray-300 mb-2"
+            >From Date</label
+          >
+          <Calendar
+            v-model="dateRange.start"
+            showIcon
+            dateFormat="yy-mm-dd"
+            inputId="startDate"
+            class="w-full glass-calendar"
+          />
         </div>
-
-        <div class="card chart-card">
-          <h2>Profit Trend</h2>
-          <apexchart
-            type="bar"
-            height="350"
-            :options="profitChartOptions"
-            :series="profitChartSeries"
-          ></apexchart>
+        <div class="flex-1 w-full">
+          <label for="endDate" class="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+          <Calendar
+            v-model="dateRange.end"
+            showIcon
+            dateFormat="yy-mm-dd"
+            inputId="endDate"
+            class="w-full glass-calendar"
+          />
         </div>
+      </div>
+    </div>
 
-        <div class="tables-grid">
-          <div class="card">
-            <h2>Most Profitable Items</h2>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item Name</th>
-                    <th class="text-right">Qty Sold</th>
-                    <th class="text-right">Total Profit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in mostProfitable" :key="item.name">
-                    <td data-label="Item Name">{{ item.name }}</td>
-                    <td data-label="Qty Sold" class="text-right">{{ item.totalSold }}</td>
-                    <td data-label="Total Profit" class="text-right highlight">
-                      Rs. {{ item.totalProfit.toFixed(2) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex flex-column align-items-center justify-content-center p-6">
+      <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+      <p class="text-gray-400 mt-3">Generating report...</p>
+    </div>
+
+    <div v-else-if="!hasData" class="glass-panel p-6 text-center">
+      <i class="pi pi-info-circle text-5xl text-gray-500 mb-3"></i>
+      <p class="text-gray-400">No sales data found for the selected period.</p>
+    </div>
+
+    <div v-else>
+      <!-- Stat Grid -->
+      <div class="grid mb-6">
+        <div class="col-12 md:col-3">
+          <div
+            class="glass-panel p-4 h-full flex flex-column justify-content-between relative overflow-hidden"
+          >
+            <div class="absolute top-0 right-0 p-3 opacity-10">
+              <i class="pi pi-dollar text-6xl text-primary"></i>
+            </div>
+            <div>
+              <p class="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                Total Net Revenue
+              </p>
+              <h2 class="text-3xl font-bold text-white mt-2">
+                <span class="text-primary text-xl mr-1">Rs.</span>{{ totalRevenue.toFixed(2) }}
+              </h2>
             </div>
           </div>
-          <div class="card">
-            <h2>Least Profitable Items</h2>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item Name</th>
-                    <th class="text-right">Qty Sold</th>
-                    <th class="text-right">Total Profit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in leastProfitable" :key="item.name">
-                    <td data-label="Item Name">{{ item.name }}</td>
-                    <td data-label="Qty Sold" class="text-right">{{ item.totalSold }}</td>
-                    <td data-label="Total Profit" class="text-right lowlight">
-                      Rs. {{ item.totalProfit.toFixed(2) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+        </div>
+        <div class="col-12 md:col-3">
+          <div
+            class="glass-panel p-4 h-full flex flex-column justify-content-between relative overflow-hidden"
+          >
+            <div class="absolute top-0 right-0 p-3 opacity-10">
+              <i class="pi pi-shopping-bag text-6xl text-orange-400"></i>
             </div>
+            <div>
+              <p class="text-gray-400 text-sm font-medium uppercase tracking-wider">Total COGS</p>
+              <h2 class="text-3xl font-bold text-white mt-2">
+                <span class="text-orange-400 text-xl mr-1">Rs.</span>{{ totalCogs.toFixed(2) }}
+              </h2>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 md:col-3">
+          <div
+            class="glass-panel p-4 h-full flex flex-column justify-content-between relative overflow-hidden"
+            style="border-color: rgba(16, 185, 129, 0.3)"
+          >
+            <div class="absolute top-0 right-0 p-3 opacity-10">
+              <i class="pi pi-wallet text-6xl text-green-400"></i>
+            </div>
+            <div>
+              <p class="text-gray-400 text-sm font-medium uppercase tracking-wider">Total Profit</p>
+              <h2 class="text-3xl font-bold text-green-400 mt-2">
+                <span class="text-green-400 text-xl mr-1">Rs.</span>{{ totalProfit.toFixed(2) }}
+              </h2>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 md:col-3">
+          <div
+            class="glass-panel p-4 h-full flex flex-column justify-content-between relative overflow-hidden"
+          >
+            <div class="absolute top-0 right-0 p-3 opacity-10">
+              <i class="pi pi-chart-pie text-6xl text-blue-400"></i>
+            </div>
+            <div>
+              <p class="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                Net Profit Margin
+              </p>
+              <h2 class="text-3xl font-bold text-white mt-2">
+                {{ profitMargin.toFixed(1) }}<span class="text-blue-400 text-xl ml-1">%</span>
+              </h2>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="glass-panel p-4 mb-6">
+        <h2 class="text-xl font-bold text-white mb-4">Profit Trend</h2>
+        <apexchart
+          type="bar"
+          height="350"
+          :options="profitChartOptions"
+          :series="profitChartSeries"
+        ></apexchart>
+      </div>
+
+      <!-- Tables Grid -->
+      <div class="grid">
+        <div class="col-12 lg:col-6">
+          <div class="glass-panel p-0 overflow-hidden h-full">
+            <div class="p-4 border-bottom-1 border-white-alpha-10">
+              <h2 class="text-xl font-bold text-white m-0">Most Profitable Items</h2>
+            </div>
+            <DataTable
+              :value="mostProfitable"
+              responsiveLayout="scroll"
+              class="glass-table"
+              :rowHover="true"
+            >
+              <Column field="name" header="Item Name">
+                <template #body="{ data }">
+                  <span class="font-bold text-white">{{ data.name }}</span>
+                </template>
+              </Column>
+              <Column field="totalSold" header="Qty Sold" class="text-right">
+                <template #body="{ data }">
+                  <span class="text-gray-300">{{ data.totalSold }}</span>
+                </template>
+              </Column>
+              <Column field="totalProfit" header="Total Profit" class="text-right">
+                <template #body="{ data }">
+                  <span class="text-green-400 font-bold"
+                    >Rs. {{ data.totalProfit.toFixed(2) }}</span
+                  >
+                </template>
+              </Column>
+            </DataTable>
+          </div>
+        </div>
+        <div class="col-12 lg:col-6">
+          <div class="glass-panel p-0 overflow-hidden h-full">
+            <div class="p-4 border-bottom-1 border-white-alpha-10">
+              <h2 class="text-xl font-bold text-white m-0">Least Profitable Items</h2>
+            </div>
+            <DataTable
+              :value="leastProfitable"
+              responsiveLayout="scroll"
+              class="glass-table"
+              :rowHover="true"
+            >
+              <Column field="name" header="Item Name">
+                <template #body="{ data }">
+                  <span class="font-bold text-white">{{ data.name }}</span>
+                </template>
+              </Column>
+              <Column field="totalSold" header="Qty Sold" class="text-right">
+                <template #body="{ data }">
+                  <span class="text-gray-300">{{ data.totalSold }}</span>
+                </template>
+              </Column>
+              <Column field="totalProfit" header="Total Profit" class="text-right">
+                <template #body="{ data }">
+                  <span class="text-red-400 font-bold">Rs. {{ data.totalProfit.toFixed(2) }}</span>
+                </template>
+              </Column>
+            </DataTable>
           </div>
         </div>
       </div>
@@ -114,12 +210,17 @@
 
 <script setup>
 import { ref, reactive, watch, onMounted, computed } from 'vue'
-import { supabase } from '@/supabase'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
 import { useProfileStore } from '@/stores/profile'
 import { RouterLink } from 'vue-router'
 import { decryptData } from '@/utils/cipher'
 import VueApexCharts from 'vue3-apexcharts'
 import DataExporter from '@/components/DataExporter.vue'
+import Calendar from 'primevue/calendar'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import ProgressSpinner from 'primevue/progressspinner'
 
 const apexchart = VueApexCharts
 const profile = useProfileStore()
@@ -135,8 +236,8 @@ const leastProfitable = ref([])
 const allItemStats = ref([])
 
 const dateRange = reactive({
-  start: new Date(new Date().setDate(1)).toISOString().split('T')[0], // First day of current month
-  end: new Date().toISOString().split('T')[0], // Today
+  start: new Date(new Date().setDate(1)), // First day of current month
+  end: new Date(), // Today
 })
 
 // Chart data
@@ -146,7 +247,8 @@ const profitChartOptions = reactive({
     type: 'bar',
     height: 350,
     toolbar: { show: false },
-    foreColor: '#a0aec0', // --color-light-slate
+    background: 'transparent',
+    fontFamily: 'Inter, sans-serif',
   },
   plotOptions: {
     bar: {
@@ -163,9 +265,13 @@ const profitChartOptions = reactive({
   },
   xaxis: {
     categories: [],
+    labels: { style: { colors: '#9ca3af' } },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
   },
   yaxis: {
-    title: { text: 'Rs. (Profit)' },
+    title: { text: 'Rs. (Profit)', style: { color: '#9ca3af' } },
+    labels: { style: { colors: '#9ca3af' } },
   },
   fill: { opacity: 1 },
   tooltip: {
@@ -174,9 +280,10 @@ const profitChartOptions = reactive({
       formatter: (val) => `Rs. ${val.toFixed(2)}`,
     },
   },
-  colors: ['#14b8a6', '#f59e0b'], // --color-peacock-teal, --color-saffron-orange
+  colors: ['#10b981'], // Neon Green
   grid: {
-    borderColor: '#4a5568', // --color-slate-gray
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    strokeDashArray: 4,
   },
 })
 
@@ -213,22 +320,31 @@ const generateReport = async () => {
 
   try {
     // 1. Fetch sales and inventory in parallel
-    const [salesRes, inventoryRes] = await Promise.all([
-      supabase
-        .from('sales')
-        .select('items, created_at, total, status')
-        .eq('pharmacy_id', profile.pharmacyId)
-        .neq('status', 'void')
-        .gte('created_at', startDateISO)
-        .lte('created_at', endDateISO),
-      supabase
-        .from('inventory')
-        .select('name, purchase_price')
-        .eq('pharmacy_id', profile.pharmacyId),
-    ])
+    // 1. Fetch sales and inventory in parallel
+    // We fetch ALL sales/inventory for range.
+    // Optimization: query only necessary fields if possible, but WatermelonDB fetches whole objects usually.
 
-    const sales = salesRes.data || []
-    const inventory = inventoryRes.data || []
+    // Sales Query
+    const salesPromise = database
+      .get('sales')
+      .query(
+        Q.where('pharmacy_id', profile.pharmacyId),
+        Q.where('status', Q.notEq('void')),
+        Q.where('created_at', Q.gte(startDateISO)),
+        Q.where('created_at', Q.lte(endDateISO)),
+      )
+      .fetch()
+
+    // Inventory Query
+    const inventoryPromise = database
+      .get('inventory')
+      .query(Q.where('pharmacy_id', profile.pharmacyId))
+      .fetch()
+
+    const [sales, inventory] = await Promise.all([salesPromise, inventoryPromise])
+
+    // const sales = salesRes.data || [] // Already array from WDB
+    // const inventory = inventoryRes.data || [] // Already array from WDB
 
     if (sales.length === 0) {
       hasData.value = false
@@ -322,150 +438,5 @@ watch(dateRange, generateReport)
 </script>
 
 <style scoped>
-/* Stealing styles from ReportsView.vue and StaffReportView.vue */
-.back-link {
-  color: var(--color-text-light);
-  text-decoration: none;
-  font-weight: 500;
-  display: block;
-  margin-bottom: 0.5rem;
-}
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-}
-.date-picker-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.date-picker-wrapper label {
-  font-weight: 500;
-}
-.filter-bar .button-secondary {
-  width: auto;
-  margin-left: auto;
-}
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-light);
-}
-
-/* Stat Grid */
-.stat-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  margin: 1.5rem;
-}
-@media (min-width: 768px) {
-  .stat-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (min-width: 1024px) {
-  .stat-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-.stat-card {
-  background-color: var(--color-surface-mute);
-  padding: 1.5rem;
-  border-radius: 12px;
-}
-.stat-card h2 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--color-soft-cream);
-}
-.stat-card.profit-card h2 {
-  color: var(--color-peacock-teal);
-}
-.stat-card .currency {
-  font-size: 1.5rem;
-  color: var(--color-light-slate);
-  margin-right: 0.25rem;
-}
-.stat-card h2 .currency {
-  font-size: 1.5rem;
-  margin-left: 0.25rem;
-}
-.stat-card p {
-  color: var(--color-text-light);
-  margin-top: 0.25rem;
-}
-
-/* Tables */
-.tables-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  margin: 1.5rem;
-}
-@media (min-width: 1024px) {
-  .tables-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-.tables-grid .card {
-  padding: 1.5rem;
-  background-color: var(--color-surface-mute);
-}
-.tables-grid h2 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-}
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-thead {
-  background-color: var(--color-surface);
-}
-thead th {
-  font-weight: 600;
-}
-tbody tr:last-child td {
-  border-bottom: none;
-}
-.text-right {
-  text-align: right;
-}
-.highlight {
-  font-weight: bold;
-  color: var(--color-peacock-teal);
-}
-.lowlight {
-  font-weight: bold;
-  color: var(--color-danger);
-}
-
-.chart-card {
-  background-color: var(--color-surface-mute);
-  padding: 1.5rem;
-  margin: 1.5rem;
-}
-.chart-card h2 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-}
+/* Utility classes handle most styles */
 </style>

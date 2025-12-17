@@ -1,98 +1,213 @@
 <template>
-  <div class="analytics-container">
-    <header class="view-header">
-      <h1 class="title">Analytics Dashboard</h1>
-      <p class="subtitle">Interactive insights and automated purchase forecasting.</p>
-    </header>
-
-    <div class="card filter-bar">
-      <div class="date-picker-wrapper">
-        <label for="startDate">From:</label>
-        <input type="date" id="startDate" v-model="dateRange.start" />
-      </div>
-      <div class="date-picker-wrapper">
-        <label for="endDate">To:</label>
-        <input type="date" id="endDate" v-model="dateRange.end" />
-      </div>
-      <button @click="fetchChartData" class="button" :disabled="isLoading.charts">
-        {{ isLoading.charts ? 'Loading...' : 'Filter Charts' }}
-      </button>
+  <div class="analytics-container p-4 max-w-7xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">Analytics Dashboard</h1>
+      <p class="text-gray-400 text-sm">Interactive insights and automated purchase forecasting.</p>
     </div>
 
-    <div v-if="isLoading.charts" class="card loading-state">
-      <p>Loading analytics data...</p>
-    </div>
-
-    <div v-if="!isLoading.charts" class="dashboard-grid">
-      <div class="card chart-card">
-        <h3>Sales by Hour of Day</h3>
-        <p>Peak times for sales activity.</p>
-        <apexchart
-          type="bar"
-          height="300"
-          :options="salesByHourOptions"
-          :series="salesByHourSeries"
-        ></apexchart>
-      </div>
-
-      <div class="card chart-card">
-        <h3>Most Profitable Items</h3>
-        <p>Top 10 items by estimated profit.</p>
-        <apexchart
-          type="bar"
-          height="300"
-          :options="profitOptions"
-          :series="profitSeries"
-        ></apexchart>
-      </div>
-
-      <div class="card list-card">
-        <h3>Top 10 Customers</h3>
-        <ul class="item-list">
-          <li v-for="customer in topCustomers" :key="customer.customer_id">
-            <span>{{ decryptData(customer.customer_name) }}</span>
-            <strong>Rs. {{ customer.total_spent.toFixed(2) }}</strong>
-          </li>
-        </ul>
-        <p v-if="topCustomers.length === 0" class="empty-list">No customer data for this period.</p>
+    <!-- Filter Bar -->
+    <div class="glass-panel p-4 mb-6">
+      <div class="flex flex-column md:flex-row gap-4 align-items-end">
+        <div class="flex-1 w-full">
+          <label for="startDate" class="block text-sm font-medium text-gray-300 mb-2"
+            >From Date</label
+          >
+          <Calendar
+            v-model="dateRange.start"
+            showIcon
+            dateFormat="yy-mm-dd"
+            inputId="startDate"
+            class="w-full glass-calendar"
+          />
+        </div>
+        <div class="flex-1 w-full">
+          <label for="endDate" class="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+          <Calendar
+            v-model="dateRange.end"
+            showIcon
+            dateFormat="yy-mm-dd"
+            inputId="endDate"
+            class="w-full glass-calendar"
+          />
+        </div>
+        <div class="w-full md:w-auto">
+          <Button
+            label="Filter Charts"
+            icon="pi pi-filter"
+            @click="fetchChartData"
+            :loading="isLoading.charts"
+            class="w-full md:w-auto"
+          />
+        </div>
       </div>
     </div>
 
-    <div class="card forecast-card">
-      <h2>Automated Purchase Forecast</h2>
-      <p class="section-subtitle">
-        This automatically shows items you may need to re-order for the next 30 days based on
-        current sales velocity.
-      </p>
+    <!-- Loading State -->
+    <div v-if="isLoading.charts" class="grid">
+      <div class="col-12 lg:col-6">
+        <div class="glass-panel p-4 h-full">
+          <Skeleton width="60%" height="2rem" class="mb-2 bg-white-alpha-10" />
+          <Skeleton width="40%" height="1rem" class="mb-4 bg-white-alpha-10" />
+          <Skeleton height="300px" class="bg-white-alpha-10" />
+        </div>
+      </div>
+      <div class="col-12 lg:col-6">
+        <div class="glass-panel p-4 h-full">
+          <Skeleton width="60%" height="2rem" class="mb-2 bg-white-alpha-10" />
+          <Skeleton width="40%" height="1rem" class="mb-4 bg-white-alpha-10" />
+          <Skeleton height="300px" class="bg-white-alpha-10" />
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="glass-panel p-4">
+          <Skeleton width="30%" height="2rem" class="mb-4 bg-white-alpha-10" />
+          <div class="flex flex-column gap-3">
+            <Skeleton height="3rem" class="bg-white-alpha-10" v-for="i in 5" :key="i" />
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <div v-if="isLoading.forecast" class="loading-state">
-        <p>Analyzing your sales history and inventory...</p>
+    <div v-else class="grid">
+      <!-- Sales by Hour -->
+      <div class="col-12 lg:col-6">
+        <div class="glass-panel p-4 h-full">
+          <h3 class="text-xl font-bold text-white mb-1">Sales by Hour of Day</h3>
+          <p class="text-gray-400 text-sm mb-4">Peak times for sales activity.</p>
+          <apexchart
+            type="bar"
+            height="300"
+            :options="salesByHourOptions"
+            :series="salesByHourSeries"
+          ></apexchart>
+        </div>
       </div>
-      <div v-else-if="forecastResults.length === 0" class="empty-state">
-        <h2>Your stock is looking good!</h2>
-        <p>Based on current sales trends, no critical items need to be re-ordered right now.</p>
+
+      <!-- Most Profitable Items -->
+      <div class="col-12 lg:col-6">
+        <div class="glass-panel p-4 h-full">
+          <h3 class="text-xl font-bold text-white mb-1">Most Profitable Items</h3>
+          <p class="text-gray-400 text-sm mb-4">Top 10 items by estimated profit.</p>
+          <apexchart
+            type="bar"
+            height="300"
+            :options="profitOptions"
+            :series="profitSeries"
+          ></apexchart>
+        </div>
       </div>
-      <div v-else class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Medicine</th>
-              <th class="text-right">Current Stock</th>
-              <th class="text-right">Predicted 30-Day Sales</th>
-              <th class="text-right highlight">Suggested Order Qty</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in forecastResults" :key="item.name">
-              <td data-label="Medicine">{{ item.name }}</td>
-              <td data-label="Current Stock" class="text-right">{{ item.stock }}</td>
-              <td data-label="Predicted Sales" class="text-right">{{ item.predicted_sales }}</td>
-              <td data-label="Suggested Order" class="text-right highlight">
-                <strong>{{ item.order_qty }}</strong>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+
+      <!-- Top Customers -->
+      <div class="col-12">
+        <div class="glass-panel p-0 overflow-hidden">
+          <div class="p-4 border-bottom-1 border-white-alpha-10">
+            <h3 class="text-xl font-bold text-white m-0">Top 10 Customers</h3>
+          </div>
+          <DataTable
+            :value="topCustomers"
+            responsiveLayout="scroll"
+            class="glass-table"
+            v-if="topCustomers.length > 0"
+          >
+            <Column field="customer_name" header="Customer Name">
+              <template #body="slotProps">
+                <span class="font-bold text-white">{{
+                  decryptData(slotProps.data.customer_name)
+                }}</span>
+              </template>
+            </Column>
+            <Column field="total_spent" header="Total Spent">
+              <template #body="slotProps">
+                <span class="font-bold text-primary"
+                  >Rs. {{ slotProps.data.total_spent.toFixed(2) }}</span
+                >
+              </template>
+            </Column>
+          </DataTable>
+          <div v-else class="text-center p-6 text-gray-400">No customer data for this period.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Forecast Section -->
+    <div class="mt-6">
+      <div class="flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 class="text-2xl font-bold text-white mb-2">Smart Reorder Suggestions (EOQ)</h2>
+          <p class="text-gray-400">
+            Items below Reorder Point (ROP) with suggested Economic Order Quantity (EOQ).
+          </p>
+        </div>
+        <Button
+          label="Auto Reorder"
+          icon="pi pi-shopping-bag"
+          class="p-button-success"
+          @click="autoReorder"
+          :loading="isLoading.reorder"
+          :disabled="forecastResults.length === 0"
+        />
+      </div>
+
+      <div v-if="isLoading.forecast" class="text-center p-6">
+        <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+        <p class="text-gray-400 mt-3">Calculating EOQ and ROP...</p>
+      </div>
+
+      <div v-else-if="forecastResults.length === 0" class="glass-panel p-6 text-center">
+        <i class="pi pi-check-circle text-5xl text-green-400 mb-3"></i>
+        <h2 class="text-2xl font-bold text-white mb-2">Inventory is Healthy!</h2>
+        <p class="text-gray-400">No items are below their calculated Reorder Point.</p>
+      </div>
+
+      <div v-else class="glass-panel p-0 overflow-hidden">
+        <DataTable
+          :value="forecastResults"
+          responsiveLayout="scroll"
+          paginator
+          :rows="10"
+          class="glass-table"
+        >
+          <Column field="name" header="Medicine" sortable>
+            <template #body="{ data }">
+              <span class="font-bold text-white">{{ data.name }}</span>
+            </template>
+          </Column>
+          <Column field="stock" header="Stock" sortable class="text-right">
+            <template #body="{ data }">
+              <span class="text-gray-300">{{ data.stock }}</span>
+            </template>
+          </Column>
+          <Column field="rop" header="Reorder Point" sortable class="text-right">
+            <template #body="{ data }">
+              <span class="text-orange-400 font-bold">{{ data.rop }}</span>
+            </template>
+          </Column>
+          <Column field="eoq" header="EOQ" sortable class="text-right">
+            <template #body="{ data }">
+              <span class="text-blue-400">{{ data.eoq }}</span>
+            </template>
+          </Column>
+          <Column field="status" header="Status" sortable>
+            <template #body="{ data }">
+              <span
+                class="px-2 py-1 border-round text-xs font-bold"
+                :class="{
+                  'bg-red-500 text-white': data.status === 'Out of Stock',
+                  'bg-orange-500 text-white': data.status === 'Reorder Now',
+                  'bg-yellow-500 text-black': data.status === 'Low Stock',
+                }"
+              >
+                {{ data.status }}
+              </span>
+            </template>
+          </Column>
+          <Column field="order_qty" header="Suggested Order" sortable class="text-right">
+            <template #body="slotProps">
+              <span class="font-bold text-primary text-lg">{{ slotProps.data.order_qty }}</span>
+            </template>
+          </Column>
+        </DataTable>
       </div>
     </div>
   </div>
@@ -100,10 +215,23 @@
 
 <script setup>
 import { ref, reactive, onActivated } from 'vue'
-import { supabase } from '@/supabase'
 import { useProfileStore } from '@/stores/profile'
 import { decryptData } from '@/utils/cipher'
 import VueApexCharts from 'vue3-apexcharts'
+import Button from 'primevue/button'
+import Calendar from 'primevue/calendar'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import ProgressSpinner from 'primevue/progressspinner'
+import Skeleton from 'primevue/skeleton'
+
+// Repositories & Utils
+import { inventoryRepository } from '@/repositories/InventoryRepository'
+import { saleRepository } from '@/repositories/SaleRepository'
+import { customerRepository } from '@/repositories/CustomerRepository'
+import { encryptData } from '@/utils/cipher'
+import { calculateEOQ, calculateROP, getInventoryStatus } from '@/utils/inventoryMath'
+import { Q } from '@nozbe/watermelondb'
 
 const apexchart = VueApexCharts
 const profile = useProfileStore()
@@ -111,12 +239,14 @@ const profile = useProfileStore()
 const isLoading = reactive({
   charts: true,
   forecast: true,
+  topCustomers: true,
+  reorder: false,
 })
 
 // --- Date Filter State ---
 const dateRange = reactive({
-  start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
-  end: new Date().toISOString().split('T')[0],
+  start: new Date(new Date().setDate(1)), // Default to 1st of current month
+  end: new Date(),
 })
 
 // --- Chart State ---
@@ -128,44 +258,57 @@ const profitSeries = ref([])
 
 // --- Forecast State ---
 const forecastResults = ref([])
-let allSales = []
-let allInventory = []
 
-// --- Chart Options (Unchanged) ---
+// --- Chart Options ---
 const baseChartOptions = {
-  chart: { toolbar: { show: false }, animations: { enabled: true } },
-  theme: { mode: 'dark' },
-  tooltip: { theme: 'dark' },
-  xaxis: {
-    labels: { style: { colors: '#a0aec0' } },
-    categories: [],
+  chart: {
+    toolbar: { show: false },
+    animations: { enabled: true },
+    background: 'transparent',
+    fontFamily: 'Inter, sans-serif',
   },
-  yaxis: { labels: { style: { colors: '#a0aec0' } } },
-  grid: { borderColor: '#4a5568' },
+  theme: { mode: 'dark' },
+  xaxis: {
+    labels: { style: { colors: '#9ca3af' } },
+    categories: [],
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: { labels: { style: { colors: '#9ca3af' } } },
+  grid: {
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    strokeDashArray: 4,
+  },
   dataLabels: { enabled: false },
+  tooltip: { theme: 'dark' },
 }
+
 const salesByHourOptions = ref({
   ...baseChartOptions,
-  plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
+  plotOptions: { bar: { horizontal: false, columnWidth: '50%', borderRadius: 4 } },
   xaxis: {
     ...baseChartOptions.xaxis,
-    title: { text: 'Hour of Day (24h)', style: { color: '#a0aec0' } },
+    title: { text: 'Hour of Day (24h)', style: { color: '#9ca3af' } },
   },
   yaxis: {
     ...baseChartOptions.yaxis,
-    title: { text: 'Total Sales (Rs)', style: { color: '#a0aec0' } },
+    title: { text: 'Total Sales (Rs)', style: { color: '#9ca3af' } },
   },
+  colors: ['#10b981'], // Neon Green
 })
+
 const profitOptions = ref({
   ...baseChartOptions,
-  plotOptions: { bar: { horizontal: true } },
+  plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
   xaxis: {
     ...baseChartOptions.xaxis,
-    title: { text: 'Estimated Profit (Rs)', style: { color: '#a0aec0' } },
+    title: { text: 'Estimated Profit (Rs)', style: { color: '#9ca3af' } },
   },
+  colors: ['#3b82f6'], // Blue
   tooltip: {
+    theme: 'dark',
     y: {
-      formatter: (val, { series, seriesIndex, dataPointIndex, w }) => {
+      formatter: (val, { dataPointIndex }) => {
         const item = topProfitItems.value[dataPointIndex]
         return `Profit: Rs. ${val.toFixed(2)} | Units Sold: ${item.units_sold}`
       },
@@ -186,362 +329,268 @@ onActivated(async () => {
   isLoading.forecast = false
 })
 
-// --- 2. Function for Historical Charts ---
+// --- 2. Function for Historical Charts (Local Aggregation) ---
 const fetchChartData = async () => {
   if (!profile.pharmacyId) return
   isLoading.charts = true
 
-  const [salesHourData, profitData, customerData] = await Promise.all([
-    supabase.rpc('get_sales_by_hour', {
-      p_pharmacy_id: profile.pharmacyId,
-      p_start_date: dateRange.start,
-      p_end_date: dateRange.end,
-    }),
-    supabase.rpc('get_most_profitable_items', {
-      p_pharmacy_id: profile.pharmacyId,
-      p_start_date: dateRange.start,
-      p_end_date: dateRange.end,
-      p_limit: 10,
-    }),
-    supabase.rpc('get_top_customers', {
-      p_pharmacy_id: profile.pharmacyId,
-      p_start_date: dateRange.start,
-      p_end_date: dateRange.end,
-      p_limit: 10,
-    }),
-  ])
+  const startDate = dateRange.start.getTime()
+  const endDate = dateRange.end.getTime() + 86400000 // Include full end day
 
-  // Process Sales by Hour
-  if (salesHourData.data) {
-    salesByHour.value = salesHourData.data
-    const hours = Array.from({ length: 24 }, (_, i) => i) // 0-23
-    const salesData = hours.map((hour) => {
-      const found = salesHourData.data.find((d) => d.hour_of_day === hour)
-      return found ? found.total_sales.toFixed(2) : 0
+  try {
+    // 1. Fetch Data
+    const [sales, inventory, customers] = await Promise.all([
+      saleRepository
+        .query(
+          Q.where('pharmacy_id', profile.pharmacyId),
+          Q.where('created_at', Q.between(startDate, endDate)),
+        )
+        .fetch(),
+      inventoryRepository.query(Q.where('pharmacy_id', profile.pharmacyId)).fetch(),
+      customerRepository.query(Q.where('pharmacy_id', profile.pharmacyId)).fetch(),
+    ])
+
+    // 2. Process Sales by Hour
+    const hourCounts = new Array(24).fill(0)
+    sales.forEach((sale) => {
+      const date = new Date(sale.createdAt)
+      const hour = date.getHours()
+      hourCounts[hour] += sale.total || 0
     })
-    salesByHourSeries.value = [{ name: 'Total Sales', data: salesData }]
+
+    salesByHourSeries.value = [
+      { name: 'Total Sales', data: hourCounts.map((v) => Number(v.toFixed(2))) },
+    ]
     salesByHourOptions.value = {
       ...salesByHourOptions.value,
-      xaxis: { ...salesByHourOptions.value.xaxis, categories: hours },
+      xaxis: {
+        ...salesByHourOptions.value.xaxis,
+        categories: Array.from({ length: 24 }, (_, i) => i),
+      },
     }
-  }
 
-  // Process Profitable Items
-  if (profitData.data) {
-    topProfitItems.value = profitData.data
-      .map((item) => ({ ...item, item_name: decryptData(item.item_name) }))
-      .reverse()
+    // 3. Process Profitable Items
+    // Map inventory for cost lookup
+    const inventoryMap = new Map()
+    inventory.forEach((item) => {
+      inventoryMap.set(item.id, {
+        cost: item.purchasePrice || 0,
+        name: decryptData(item.name),
+      })
+    })
+
+    const itemProfits = new Map() // { itemId: { profit: 0, units: 0, name: '' } }
+
+    sales.forEach((sale) => {
+      let items = []
+      try {
+        items = typeof sale.items === 'string' ? JSON.parse(sale.items) : sale.items
+      } catch {
+        return
+      }
+
+      if (Array.isArray(items)) {
+        items.forEach((item) => {
+          if (!item.inventory_id) return
+
+          const inv = inventoryMap.get(item.inventory_id)
+          const cost = inv ? inv.cost : 0
+          const name = inv ? inv.name : item.name ? decryptData(item.name) : 'Unknown'
+          const sellingPrice = item.price || 0
+          const qty = item.quantity || 0
+          const profit = (sellingPrice - cost) * qty
+
+          if (!itemProfits.has(item.inventory_id)) {
+            itemProfits.set(item.inventory_id, { profit: 0, units: 0, name })
+          }
+          const entry = itemProfits.get(item.inventory_id)
+          entry.profit += profit
+          entry.units += qty
+        })
+      }
+    })
+
+    const sortedProfits = Array.from(itemProfits.values())
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 10)
+
+    topProfitItems.value = sortedProfits.map((p) => ({
+      item_name: p.name,
+      total_profit: p.profit,
+      units_sold: p.units,
+    }))
+
     profitSeries.value = [
       {
         name: 'Estimated Profit',
-        data: topProfitItems.value.map((i) => i.total_profit.toFixed(2)),
+        data: sortedProfits.map((p) => Number(p.profit.toFixed(2))),
       },
     ]
     profitOptions.value = {
       ...profitOptions.value,
       xaxis: {
         ...profitOptions.value.xaxis,
-        categories: topProfitItems.value.map((i) => i.item_name),
+        categories: sortedProfits.map((p) => p.name),
       },
     }
-  }
 
-  // Process Top Customers
-  if (customerData.data) {
-    topCustomers.value = customerData.data
+    // 4. Process Top Customers
+    const customerMap = new Map()
+    customers.forEach((c) => {
+      customerMap.set(c.id, decryptData(c.name))
+    })
+
+    const customerSpending = new Map() // { customerId: total }
+
+    sales.forEach((sale) => {
+      if (sale.customerId) {
+        const current = customerSpending.get(sale.customerId) || 0
+        customerSpending.set(sale.customerId, current + (sale.total || 0))
+      }
+    })
+
+    const sortedCustomers = Array.from(customerSpending.entries())
+      .map(([id, total]) => ({
+        customer_name: encryptData(customerMap.get(id) || 'Unknown'), // Re-encrypt for template compatibility
+        total_spent: total,
+      }))
+      .sort((a, b) => b.total_spent - a.total_spent)
+      .slice(0, 10)
+
+    topCustomers.value = sortedCustomers
+  } catch (e) {
+    console.error('Local analytics failed', e)
   }
 
   isLoading.charts = false
 }
 
-// --- 3. Functions for Purchase Forecast ---
+// --- 3. Functions for Purchase Forecast (Offline First via Repositories) ---
 const fetchAndRunForecast = async () => {
   isLoading.forecast = true
 
-  // 3a. Fetch all sales and inventory data
-  const [salesData, inventoryData] = await Promise.all([
-    supabase
-      .from('sales')
-      .select('created_at, items')
-      .eq('pharmacy_id', profile.pharmacyId)
-      .neq('status', 'void'),
-    supabase.from('inventory').select('*').eq('pharmacy_id', profile.pharmacyId),
-  ])
-  allSales = salesData.data || []
-  allInventory = inventoryData.data || []
+  try {
+    // Fetch local data
+    const [inventoryRecords, saleRecords] = await Promise.all([
+      inventoryRepository.query(Q.where('pharmacy_id', profile.pharmacyId)).fetch(),
+      saleRepository.query(Q.where('pharmacy_id', profile.pharmacyId)).fetch(),
+    ])
 
-  // 3b. Run the forecast generation
-  generatePurchaseForecast()
+    const allInventory = inventoryRecords.map((i) => i._raw)
+    const allSales = saleRecords.map((s) => s._raw)
+
+    generatePurchaseForecast(allInventory, allSales)
+  } catch (e) {
+    console.error('Forecast generation failed', e)
+  }
+
   isLoading.forecast = false
 }
 
-const generatePurchaseForecast = () => {
-  const criticalItems = new Map()
-  allInventory
-    .filter((item) => item.quantity < 20) // Low stock threshold
-    .forEach((item) => {
-      const name = decryptData(item.name)
-      if (name) {
-        criticalItems.set(name, {
-          name: name,
-          stock: item.quantity,
-        })
-      }
-    })
-
-  const salesCounts = {}
-  allSales.forEach((sale) => {
-    sale.items.forEach((item) => {
-      const name = decryptData(item.name)
-      if (name) {
-        salesCounts[name] = (salesCounts[name] || 0) + 1
-      }
-    })
-  })
-
-  const topSellers = Object.entries(salesCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 50)
-
-  topSellers.forEach(([name]) => {
-    if (!criticalItems.has(name)) {
-      const stock = allInventory
-        .filter((i) => decryptData(i.name) === name)
-        .reduce((sum, i) => sum + i.quantity, 0)
-      criticalItems.set(name, { name, stock })
-    }
-  })
-
-  const salesByDay = {}
-  criticalItems.forEach((item) => {
-    salesByDay[item.name] = {}
-  })
-
-  allSales.forEach((sale) => {
-    const date = new Date(sale.created_at).toISOString().split('T')[0]
-    sale.items.forEach((item) => {
-      const name = decryptData(item.name)
-      if (criticalItems.has(name)) {
-        salesByDay[name][date] = (salesByDay[name][date] || 0) + item.quantity
-      }
-    })
-  })
-
+const generatePurchaseForecast = (allInventory, allSales) => {
   const results = []
-  criticalItems.forEach((item) => {
-    const itemSalesHistory = salesByDay[item.name]
-    const sortedDates = Object.keys(itemSalesHistory).sort()
-    if (sortedDates.length === 0) return
 
-    const startDate = new Date(sortedDates[0])
-    const endDate = new Date()
-    const timeSeries = []
-    let currentDate = new Date(startDate)
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0]
-      timeSeries.push(itemSalesHistory[dateStr] || 0)
-      currentDate.setDate(currentDate.getDate() + 1)
-    }
+  // Constants for EOQ/ROP (Could be configurable later)
+  const ORDERING_COST = 500 // Rs per order
+  const HOLDING_COST_PERCENT = 0.2 // 20% of unit price
+  const LEAD_TIME_DAYS = 7
+  const SAFETY_STOCK_DAYS = 3
 
-    if (timeSeries.length < 3) return
+  // 1. Calculate Sales Velocity per Item
+  const itemStats = new Map() // { itemId: { totalSold: 0, firstSaleDate: timestamp, lastSaleDate: timestamp } }
 
-    const forecast = runStatisticalForecast(timeSeries, 30)
-    const totalPredictedSales = forecast.reduce((sum, day) => sum + day.sales, 0)
-    const suggestedOrder = totalPredictedSales - item.stock
+  allSales.forEach((sale) => {
+    let items = []
+    try {
+      items = typeof sale.items === 'string' ? JSON.parse(sale.items) : sale.items
+    } catch {}
 
-    if (suggestedOrder > 0) {
-      results.push({
-        name: item.name,
-        stock: item.stock,
-        predicted_sales: Math.round(totalPredictedSales),
-        order_qty: Math.ceil(suggestedOrder / 10) * 10,
+    if (Array.isArray(items)) {
+      items.forEach((item) => {
+        if (!item.inventory_id) return
+
+        if (!itemStats.has(item.inventory_id)) {
+          itemStats.set(item.inventory_id, {
+            totalSold: 0,
+            firstSaleDate: sale.created_at,
+            lastSaleDate: sale.created_at,
+          })
+        }
+
+        const stats = itemStats.get(item.inventory_id)
+        stats.totalSold += item.quantity || 1
+        if (sale.created_at < stats.firstSaleDate) stats.firstSaleDate = sale.created_at
+        if (sale.created_at > stats.lastSaleDate) stats.lastSaleDate = sale.created_at
       })
     }
   })
 
-  forecastResults.value = results.sort((a, b) => b.order_qty - a.order_qty)
+  // 2. Process Inventory Items
+  allInventory.forEach((item) => {
+    const stats = itemStats.get(item.id)
+    const name = decryptData(item.name)
+
+    // Defaults if no sales history
+    let dailyUsage = 0
+    let annualDemand = 0
+
+    if (stats) {
+      const daysDiff = Math.max(
+        1,
+        (new Date().getTime() - stats.firstSaleDate) / (1000 * 60 * 60 * 24),
+      )
+      dailyUsage = stats.totalSold / daysDiff
+      annualDemand = dailyUsage * 365
+    }
+
+    const holdingCost = (item.purchase_price || item.selling_price * 0.7) * HOLDING_COST_PERCENT
+
+    // Calculate Metrics
+    const eoq = calculateEOQ({
+      annualDemand,
+      orderingCost: ORDERING_COST,
+      holdingCost: holdingCost || 1, // Avoid div by zero
+    })
+
+    const rop = calculateROP({
+      dailyUsage,
+      leadTime: LEAD_TIME_DAYS,
+      safetyStock: dailyUsage * SAFETY_STOCK_DAYS,
+    })
+
+    const status = getInventoryStatus(item.quantity, rop)
+
+    // Only suggest if we need to reorder or it's low
+    if (status === 'Reorder Now' || status === 'Low Stock' || status === 'Out of Stock') {
+      results.push({
+        id: item.id,
+        name: name,
+        stock: item.quantity,
+        rop: rop,
+        eoq: eoq,
+        daily_usage: dailyUsage.toFixed(2),
+        status: status,
+        order_qty: Math.max(eoq, rop - item.quantity + 10), // Ensure we order enough to cover gap
+      })
+    }
+  })
+
+  forecastResults.value = results.sort((a, b) => {
+    // Sort by urgency: Out of Stock > Reorder Now > Low Stock
+    const priority = { 'Out of Stock': 3, 'Reorder Now': 2, 'Low Stock': 1, Healthy: 0 }
+    return priority[b.status] - priority[a.status]
+  })
 }
 
-const runStatisticalForecast = (data, daysToForecast) => {
-  const alpha = 0.3
-  let smoothed = [data[0] || 0]
-  for (let i = 1; i < data.length; i++) {
-    smoothed.push(alpha * data[i] + (1 - alpha) * smoothed[i - 1])
-  }
-
-  const forecastValue = smoothed[smoothed.length - 1]
-  const predictions = []
-  for (let i = 0; i < daysToForecast; i++) {
-    predictions.push({
-      sales: forecastValue < 0 ? 0 : forecastValue,
-    })
-  }
-  return predictions
+const autoReorder = () => {
+  isLoading.reorder = true
+  setTimeout(() => {
+    isLoading.reorder = false
+    alert('Purchase Order Generated! (Simulation)')
+  }, 1500)
 }
 </script>
 
 <style scoped>
-.analytics-container {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-.date-picker-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.date-picker-wrapper label {
-  font-weight: 500;
-}
-.filter-bar .button {
-  width: auto;
-  margin-left: auto;
-}
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-light);
-}
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-}
-@media (min-width: 1024px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .dashboard-grid .list-card {
-    /* Make the customer list take up a full row on large screens */
-    grid-column: 1 / -1;
-  }
-}
-.chart-card {
-  padding: 1.5rem;
-}
-.chart-card h3,
-.list-card h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-.chart-card p {
-  color: var(--color-text-light);
-  margin-bottom: 1rem;
-}
-.list-card {
-  padding: 1.5rem;
-}
-.item-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.item-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
-.item-list li:last-child {
-  border-bottom: none;
-}
-.item-list span {
-  font-weight: 500;
-}
-.item-list strong {
-  color: var(--color-primary);
-}
-.empty-list {
-  text-align: center;
-  color: var(--color-text-light);
-  padding: 1rem 0;
-}
-
-/* Forecast Card Styles */
-.forecast-card {
-  margin-top: 2rem;
-}
-.forecast-card h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-.section-subtitle {
-  color: var(--color-text-light);
-  margin-bottom: 1.5rem;
-  font-size: 1rem;
-}
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-thead {
-  background-color: var(--color-surface-mute);
-}
-.text-right {
-  text-align: right;
-}
-.highlight {
-  font-weight: bold;
-  color: var(--color-primary);
-}
-.highlight strong {
-  font-size: 1.2rem;
-}
-
-@media (max-width: 768px) {
-  thead {
-    display: none;
-  }
-  tbody tr {
-    display: block;
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    margin-bottom: 1rem;
-    padding: 1rem;
-  }
-  td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0.5rem;
-    border-bottom: 1px solid var(--color-surface-mute);
-    white-space: normal;
-    text-align: right;
-  }
-  tr td:last-child {
-    border-bottom: none;
-  }
-  td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--color-text-light);
-    padding-right: 1rem;
-    text-align: left;
-  }
-}
+/* Utility classes handle most styles */
 </style>

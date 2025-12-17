@@ -1,9 +1,16 @@
 <template>
   <div>
-    <button @click="isPinModalOpen = true" class="switch-user-fab">
-      <span class="fab-icon">👤</span>
-      <span class="fab-text">{{ staffStore.activeUserName }}</span>
-    </button>
+    <Button
+      rounded
+      class="switch-user-fab shadow-4"
+      @click="isPinModalOpen = true"
+      v-tooltip.left="'Switch User'"
+    >
+      <div class="flex align-items-center gap-2 px-2">
+        <i class="pi pi-user text-xl"></i>
+        <span class="hidden md:inline font-bold">{{ staffStore.activeUserName }}</span>
+      </div>
+    </Button>
 
     <PinLoginModal v-if="isPinModalOpen" @close="isPinModalOpen = false" />
   </div>
@@ -13,6 +20,7 @@
 import { ref } from 'vue'
 import { useStaffStore } from '@/stores/staff.js'
 import PinLoginModal from './PinLoginModal.vue'
+import Button from 'primevue/button'
 
 const staffStore = useStaffStore()
 const isPinModalOpen = ref(false)
@@ -23,51 +31,15 @@ const isPinModalOpen = ref(false)
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: auto;
-  min-width: 60px;
-  height: 60px;
-  background-color: var(--color-primary);
-  color: var(--color-midnight-blue);
-  border-radius: 999px;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 20px;
-  gap: 10px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease-in-out;
   z-index: 100;
+  height: 3.5rem;
 }
-
-.switch-user-fab:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-}
-
-.fab-icon {
-  font-size: 1.5rem;
-}
-
-.fab-text {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 150px; /* Prevents long names from breaking the layout */
-}
-
-/* On smaller screens (mobile), hide the text to save space */
 @media (max-width: 768px) {
   .switch-user-fab {
-    width: 60px; /* Make it a perfect circle */
-    padding: 0;
-  }
-  .fab-text {
-    display: none;
+    bottom: 80px; /* Move up to avoid bottom nav */
+    width: 3.5rem;
+    padding: 0 !important;
+    justify-content: center;
   }
 }
 </style>

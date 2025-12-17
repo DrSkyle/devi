@@ -24,5 +24,29 @@ export const useNotificationStore = defineStore('notification', () => {
     }, 4000)
   }
 
-  return { message, type, isVisible, showNotification }
+  // --- Broadcast Messages Logic ---
+  const unreadCount = ref(0)
+
+  async function checkUnreadMessages(pharmacyId) {
+    if (!pharmacyId) return
+
+    // Local-First: We don't check cloud notifications for now.
+    // Future: Check 'notifications' collection in WatermelonDB.
+    unreadCount.value = 0
+  }
+
+  function markAsRead() {
+    unreadCount.value = 0
+    localStorage.setItem('lastNotificationReadTime', new Date().toISOString())
+  }
+
+  return {
+    message,
+    type,
+    isVisible,
+    showNotification,
+    unreadCount,
+    checkUnreadMessages,
+    markAsRead,
+  }
 })

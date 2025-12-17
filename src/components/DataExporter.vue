@@ -1,12 +1,18 @@
 <template>
-  <button @click="exportData" class="button-secondary" :disabled="isExporting">
-    {{ isExporting ? 'Exporting...' : buttonText }}
-  </button>
+  <Button
+    :label="isExporting ? 'Exporting...' : buttonText"
+    icon="pi pi-download"
+    :loading="isExporting"
+    @click="exportData"
+    severity="secondary"
+    outlined
+  />
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { useNotificationStore } from '@/stores/notification.js'
+import { useToast } from 'primevue/usetoast'
+import Button from 'primevue/button'
 
 const props = defineProps({
   data: {
@@ -15,7 +21,7 @@ const props = defineProps({
   },
   fileName: {
     type: String,
-    default: 'export.csv', // Default to .csv
+    default: 'export.csv',
   },
   buttonText: {
     type: String,
@@ -24,24 +30,17 @@ const props = defineProps({
 })
 
 const isExporting = ref(false)
-const notification = useNotificationStore()
+const toast = useToast()
 
-// Helper function to convert the array of objects to a CSV string
 const convertToCSV = (data) => {
-  if (!data || data.length === 0) {
-    return ''
-  }
+  if (!data || data.length === 0) return ''
   const headers = Object.keys(data[0])
   const rows = data.map((obj) =>
     headers
       .map((header) => {
         let value = obj[header]
-        // Handle null/undefined values
-        if (value == null) {
-          return ''
-        }
+        if (value == null) return ''
         let strValue = String(value)
-        // Escape quotes by doubling them and wrap the whole value in quotes if it contains commas, quotes, or newlines
         if (strValue.includes('"') || strValue.includes(',') || strValue.includes('\n')) {
           strValue = `"${strValue.replace(/"/g, '""')}"`
         }
@@ -54,18 +53,19 @@ const convertToCSV = (data) => {
 
 const exportData = () => {
   if (props.data.length === 0) {
-    notification.showNotification('There is no data to export.', 'error')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'There is no data to export.',
+      life: 3000,
+    })
     return
   }
 
   isExporting.value = true
   try {
     const csvContent = convertToCSV(props.data)
-
-    // Create a Blob (Binary Large Object) from the CSV content
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-
-    // Create a temporary link element to trigger the download
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
     link.setAttribute('href', url)
@@ -75,16 +75,22 @@ const exportData = () => {
     link.click()
     document.body.removeChild(link)
 
-    notification.showNotification('Data exported successfully!')
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Data exported successfully!',
+      life: 3000,
+    })
   } catch (error) {
     console.error('Export failed:', error)
-    notification.showNotification('An error occurred during the export.', 'error')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'An error occurred during the export.',
+      life: 3000,
+    })
   } finally {
     isExporting.value = false
   }
 }
 </script>
-
-<style scoped>
-/* Scoped styles if needed, for now re-using global button styles */
-</style>

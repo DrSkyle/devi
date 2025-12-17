@@ -1,225 +1,331 @@
 <template>
-  <div class="settings-container">
-    <header class="view-header">
-      <h1 class="title">Settings</h1>
-      <p class="subtitle">Manage application preferences and features.</p>
+  <div class="settings-container max-w-3xl mx-auto p-4">
+    <header class="mb-6">
+      <h1 class="text-3xl font-bold text-white mb-2">Settings</h1>
+      <p class="text-gray-400">Manage application preferences and features.</p>
     </header>
 
-    <div class="card">
-      <h2 class="section-title">Shift Management Mode</h2>
-      <p class="section-subtitle">
-        Choose how your staff manage their shifts and cash. This setting applies to all staff.
-      </p>
-      <div class="form-group">
-        <label for="shiftMode">Select Shift Mode</label>
-        <select id="shiftMode" v-model="settings.shiftMode">
-          <option value="strict">Strict Reconciliation (Requires cash counting)</option>
-          <option value="simple">Simple Tracking (Tracks time and sales only)</option>
-        </select>
+    <!-- Shift Management Section Removed -->
+
+    <!-- SMS Reminders Section -->
+    <div class="glass-panel p-5 mb-6">
+      <div class="flex align-items-center justify-content-between mb-4">
+        <div class="flex align-items-center gap-3">
+          <div class="bg-purple-500 border-round-lg p-2">
+            <i class="pi pi-envelope text-white text-xl"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-white m-0">Khata SMS Reminders</h2>
+            <p class="text-gray-400 text-sm mt-1">Automated payment reminders.</p>
+          </div>
+        </div>
+        <InputSwitch v-model="settings.smsEnabled" />
       </div>
-      <div class="mode-explanation">
-        <p v-if="settings.shiftMode === 'strict'">
-          <strong>Strict Mode:</strong> Staff must enter their starting cash and count their final
-          cash at the end of a shift. Use this if each cashier manages their own drawer.
-        </p>
-        <p v-if="settings.shiftMode === 'simple'">
-          <strong>Simple Mode:</strong> Cash counting is disabled. The system only tracks shift
-          duration and total sales value for each staff member. Use this for shared cash drawers.
-        </p>
+
+      <div v-if="settings.smsEnabled" class="animation-duration-300 fadein">
+        <div class="field mb-4">
+          <label for="smsTemplate" class="block text-gray-300 font-medium mb-2"
+            >Message Template</label
+          >
+          <Textarea
+            id="smsTemplate"
+            v-model="settings.smsTemplate"
+            rows="4"
+            class="w-full"
+            placeholder="Enter your message template..."
+          />
+          <small class="block mt-2 text-gray-500">
+            Available tags: <span class="text-primary">[CustomerName]</span>,
+            <span class="text-primary">[Balance]</span>,
+            <span class="text-primary">[PharmacyName]</span>
+          </small>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <h2 class="section-title">Khata SMS Reminders</h2>
-      <p class="section-subtitle">
-        Automatically send payment reminders to customers with outstanding balances. This requires
-        integration with an SMS service.
-      </p>
-
-      <div class="form-group toggle-group">
-        <label for="sms-enabled">Enable Automated Reminders</label>
-        <label class="switch">
-          <input type="checkbox" id="sms-enabled" v-model="settings.smsEnabled" />
-          <span class="slider round"></span>
-        </label>
-      </div>
-
-      <div v-if="settings.smsEnabled">
-        <div class="form-group">
-          <label for="sms-message">Reminder Message Template</label>
-          <textarea
-            id="sms-message"
-            v-model="settings.smsTemplate"
-            rows="4"
-            placeholder="e.g., Namaste [CustomerName], a friendly reminder that your outstanding balance at [PharmacyName] is Rs. [Balance]. Thank you!"
-          ></textarea>
-          <div class="template-tags">
-            Use tags: <strong>[CustomerName]</strong>, <strong>[Balance]</strong>,
-            <strong>[PharmacyName]</strong>
-          </div>
+    <!-- Theme Preferences Section -->
+    <div class="glass-panel p-5 mb-6">
+      <div class="flex align-items-center gap-3 mb-4">
+        <div class="bg-pink-500 border-round-lg p-2">
+          <i class="pi pi-palette text-white text-xl"></i>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white m-0">Theme Preferences</h2>
+          <p class="text-gray-400 text-sm mt-1">Customize the look and feel.</p>
         </div>
       </div>
 
-      <div class="form-actions">
-        <button @click="saveSettings" class="button">Save Settings</button>
+      <div class="field mb-4">
+        <label class="block text-gray-300 font-medium mb-2">Accent Color</label>
+        <div class="flex gap-3 flex-wrap">
+          <div
+            v-for="color in accentColors"
+            :key="color.value"
+            class="w-3rem h-3rem border-circle cursor-pointer transition-all hover:scale-110 flex align-items-center justify-content-center flex-shrink-0"
+            :style="{
+              backgroundColor: color.value,
+              boxShadow: settings.accentColor === color.value ? `0 0 15px ${color.value}` : 'none',
+              border: settings.accentColor === color.value ? '2px solid white' : 'none',
+            }"
+            @click="updateAccentColor(color.value)"
+          >
+            <i
+              v-if="settings.accentColor === color.value"
+              class="pi pi-check text-white text-xl"
+            ></i>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <!-- Backup & Restore Section -->
+    <div class="glass-panel p-5 mb-6">
+      <div class="flex align-items-center gap-3 mb-4">
+        <div class="bg-blue-500 border-round-lg p-2">
+          <i class="pi pi-database text-white text-xl"></i>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white m-0">Data Management</h2>
+          <p class="text-gray-400 text-sm mt-1">Backup and restore your data.</p>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="col-12 md:col-6">
+          <div class="border-1 border-white-alpha-10 border-round p-3 h-full flex flex-column">
+            <h3 class="text-lg font-bold text-white mb-2">Backup</h3>
+            <p class="text-gray-400 text-sm mb-4 flex-grow-1">
+              Download a copy of your inventory and sales data.
+            </p>
+            <Button
+              label="Download Backup"
+              icon="pi pi-download"
+              class="p-button-outlined w-full"
+              @click="downloadBackup"
+            />
+          </div>
+        </div>
+        <div class="col-12 md:col-6">
+          <div class="border-1 border-white-alpha-10 border-round p-3 h-full flex flex-column">
+            <h3 class="text-lg font-bold text-white mb-2">Restore</h3>
+            <p class="text-gray-400 text-sm mb-4 flex-grow-1">
+              Restore data from a previous backup file.
+            </p>
+            <Button
+              label="Upload Backup"
+              icon="pi pi-upload"
+              class="p-button-outlined w-full"
+              @click="triggerRestore"
+            />
+            <input
+              type="file"
+              ref="fileInput"
+              class="hidden"
+              accept=".json"
+              @change="handleRestore"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-content-end">
+      <Button
+        label="Save Changes"
+        icon="pi pi-check"
+        @click="saveSettings"
+        :loading="isSaving"
+        class="w-full md:w-auto"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, onMounted } from 'vue'
-import { supabase } from '@/supabase'
+import { reactive, ref, onMounted } from 'vue'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
 import { useNotificationStore } from '@/stores/notification'
 
+import InputSwitch from 'primevue/inputswitch'
+import Textarea from 'primevue/textarea'
+import Button from 'primevue/button'
+
 const notification = useNotificationStore()
+const isSaving = ref(false)
+const fileInput = ref(null)
+
 const settings = reactive({
-  shiftMode: 'strict',
   smsEnabled: false,
   smsTemplate: `Namaste [CustomerName], a friendly reminder that your outstanding balance at [PharmacyName] is Rs. [Balance]. Thank you!`,
+  accentColor: '#10b981', // Default Emerald
 })
+
+const accentColors = [
+  { name: 'Emerald', value: '#10b981' },
+  { name: 'Blue', value: '#3b82f6' },
+  { name: 'Purple', value: '#a855f7' },
+  { name: 'Pink', value: '#ec4899' },
+  { name: 'Orange', value: '#f97316' },
+]
 
 onMounted(async () => {
-  const { data: khataSettings } = await supabase
-    .from('app_meta')
-    .select('value')
-    .eq('key', 'khataSettings')
-    .single()
-  if (khataSettings) Object.assign(settings, khataSettings.value)
+  // Load from local DB
+  const appMeta = database.get('app_meta')
+  const existing = await appMeta.query(Q.where('key', 'khataSettings')).fetch()
+  if (existing.length > 0) {
+      Object.assign(settings, existing[0].value)
+  }
 
-  const { data: shiftSettings } = await supabase
-    .from('app_meta')
-    .select('value')
-    .eq('key', 'shiftSettings')
-    .single()
-  if (shiftSettings) settings.shiftMode = shiftSettings.value.shiftMode || 'strict'
+  // Load theme preference if saved (mock implementation for now, could be in local storage or DB)
+  const savedColor = localStorage.getItem('accentColor')
+  if (savedColor) settings.accentColor = savedColor
+  updateAccentColor(settings.accentColor)
 })
 
-const saveSettings = async () => {
+const updateAccentColor = (color) => {
+  settings.accentColor = color
+  document.documentElement.style.setProperty('--primary-color', color)
+  document.documentElement.style.setProperty('--accent-glow', color)
+  // Also update PrimeVue primary color variable if possible, or rely on our overrides using these vars
+  localStorage.setItem('accentColor', color)
+}
+
+const downloadBackup = async () => {
   try {
-    const { error: khataError } = await supabase.from('app_meta').upsert({
-      key: 'khataSettings',
-      value: { smsEnabled: settings.smsEnabled, smsTemplate: settings.smsTemplate },
-    })
-    if (khataError) throw khataError
+    // Fetch all data from WatermelonDB
+    const tables = [
+      'customers',
+      'inventory',
+      'sales',
+      'suppliers',
+      'staff',
+      'profiles',
+      'pharmacies',
+      'unmet_demand',
+      'shifts',
+      'notifications',
+      'dda_logs',
+      'app_meta',
+    ]
 
-    const { error: shiftError } = await supabase.from('app_meta').upsert({
-      key: 'shiftSettings',
-      value: { shiftMode: settings.shiftMode },
-    })
-    if (shiftError) throw shiftError
+    const backupData = {
+      timestamp: new Date().toISOString(),
+      version: '2.0', // WatermelonDB version
+      tables: {},
+    }
 
-    notification.showNotification('Settings saved successfully!')
+    for (const table of tables) {
+      const collection = database.get(table)
+      const records = await collection.query().fetch()
+      backupData.tables[table] = records.map((r) => r._raw)
+    }
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `devi-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    notification.showNotification('Backup downloaded successfully!')
   } catch (error) {
+    console.error('Backup failed:', error)
+    notification.showNotification('Failed to create backup.', 'error')
+  }
+}
+
+const triggerRestore = () => {
+  fileInput.value.click()
+}
+
+const handleRestore = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result)
+
+      if (!data.tables) throw new Error('Invalid backup format')
+
+      await database.write(async () => {
+        for (const [tableName, rows] of Object.entries(data.tables)) {
+          // Skip if table not in schema (legacy backup support)
+          try {
+            const collection = database.get(tableName)
+            if (!collection) continue
+
+            for (const row of rows) {
+              try {
+                const existing = await collection.find(row.id)
+                await existing.update((rec) => {
+                  Object.keys(row).forEach((key) => {
+                    if (key !== 'id' && key !== '_status' && key !== '_changed')
+                      rec._raw[key] = row[key]
+                  })
+                })
+              } catch {
+                await collection.create((rec) => {
+                  rec._raw.id = row.id
+                  Object.keys(row).forEach((key) => {
+                    if (key !== 'id' && key !== '_status' && key !== '_changed')
+                      rec._raw[key] = row[key]
+                  })
+                })
+              }
+            }
+          } catch (err) {
+            console.warn(`Skipping table ${tableName}:`, err)
+          }
+        }
+      })
+
+      notification.showNotification('Data restored successfully!')
+      // Optional: Reload to reflect changes
+      setTimeout(() => window.location.reload(), 1500)
+    } catch (error) {
+      console.error('Restore failed:', error)
+      notification.showNotification('Invalid backup file or restore failed.', 'error')
+    }
+  }
+  reader.readAsText(file)
+}
+
+const saveSettings = async () => {
+  isSaving.value = true
+  try {
+  // Save locally to WatermelonDB AppMeta
+    await database.write(async () => {
+      const appMeta = database.get('app_meta')
+      const key = 'khataSettings'
+      const value = { smsEnabled: settings.smsEnabled, smsTemplate: settings.smsTemplate }
+
+      const existing = await appMeta.query(Q.where('key', key)).fetch()
+      if (existing.length > 0) {
+        await existing[0].update((rec) => {
+          rec.value = value
+        })
+      } else {
+        await appMeta.create((rec) => {
+          rec.key = key
+          rec.value = value
+        })
+      }
+    })
+
+    notification.showNotification('Settings saved locally!')
+  } catch (error) {
+    console.error(error)
     notification.showNotification('Failed to save settings.', 'error')
+  } finally {
+    isSaving.value = false
   }
 }
 </script>
 
 <style scoped>
-/* New styles for this page */
-.mode-explanation {
-  background-color: var(--color-surface-mute);
-  padding: 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-}
-.mode-explanation strong {
-  color: var(--color-primary);
-}
-
-/* All other styles are the same */
-.settings-container {
-  max-width: 700px;
-  margin: 0 auto;
-}
-.card {
-  margin-bottom: 2rem;
-}
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-.section-subtitle {
-  color: var(--color-text-light);
-  margin-bottom: 2rem;
-}
-.form-group {
-  margin-bottom: 1.5rem;
-}
-.toggle-group {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: var(--color-surface-mute);
-  padding: 1rem;
-  border-radius: 8px;
-}
-.toggle-group label {
-  font-weight: 600;
-  margin: 0;
-}
-.template-tags {
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-  margin-top: 0.5rem;
-}
-.form-actions {
-  margin-top: 2rem;
-  border-top: 1px solid var(--color-border);
-  padding-top: 1.5rem;
-  display: flex;
-  justify-content: flex-end;
-}
-.form-actions button {
-  width: auto;
-}
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
-}
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--color-slate-gray);
-  transition: 0.4s;
-}
-.slider:before {
-  position: absolute;
-  content: '';
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: 0.4s;
-}
-input:checked + .slider {
-  background-color: var(--color-primary);
-}
-input:focus + .slider {
-  box-shadow: 0 0 1px var(--color-primary);
-}
-input:checked + .slider:before {
-  transform: translateX(26px);
-}
-.slider.round {
-  border-radius: 34px;
-}
-.slider.round:before {
-  border-radius: 50%;
-}
+/* Scoped styles if needed, but global styles should handle most */
 </style>

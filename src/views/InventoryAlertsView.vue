@@ -1,126 +1,278 @@
 <template>
-  <div class="alerts-container">
-    <header class="view-header">
-      <RouterLink to="/inventory" class="back-link">&larr; Back to Inventory</RouterLink>
-      <h1 class="title">Inventory Alerts</h1>
-      <p class="subtitle">Actionable insights into your stock levels and expiry dates.</p>
-    </header>
-
-    <div v-if="isLoading" class="card empty-state">
-      <p>Loading alerts...</p>
-    </div>
+  <div class="max-w-6xl mx-auto p-4">
+    <!-- Header -->
     <div
-      v-else-if="lowStockItems.length === 0 && expiringItems.length === 0"
-      class="card empty-state all-clear"
+      class="mb-6 flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center gap-4"
     >
-      <h2>All Clear!</h2>
-      <p>
-        Your inventory is in great shape. There are no low stock or expiring items that need your
-        attention right now.
-      </p>
-    </div>
-
-    <div v-else class="alerts-layout">
-      <div class="card">
-        <h2>
-          Low Stock Items <span class="count-badge warning">{{ lowStockItems.length }}</span>
-        </h2>
-        <p class="card-subtitle">Items with quantity below 10 units.</p>
-        <div v-if="lowStockItems.length > 0" class="items-list">
-          <div v-for="item in lowStockItems" :key="item._id" class="alert-item">
-            <div class="item-details">
-              <span class="item-name">{{ item.name }}</span>
-              <span class="item-subtext">Supplier: {{ item.supplierName || 'N/A' }}</span>
-            </div>
-            <div class="item-status">
-              <span class="quantity">{{ item.quantity }} left</span>
-            </div>
-          </div>
-        </div>
-        <p v-else class="empty-list">No items are currently low on stock.</p>
+      <div>
+        <RouterLink
+          to="/inventory"
+          class="no-underline flex align-items-center gap-2 text-gray-400 hover:text-white transition-colors mb-3"
+        >
+          <i class="pi pi-arrow-left"></i>
+          <span>Back to Inventory</span>
+        </RouterLink>
+        <h1 class="text-4xl font-thin text-white mb-2 flex align-items-center gap-3">
+          Inventory Alerts
+          <Tag
+            :value="totalAlerts"
+            severity="danger"
+            class="text-lg px-3 py-1"
+            rounded
+            v-if="totalAlerts > 0"
+          />
+        </h1>
+        <p class="text-gray-400">Actionable insights into your stock levels and expiry dates.</p>
       </div>
 
-      <div class="card">
-        <h2>
-          Expiring Soon <span class="count-badge danger">{{ expiringItems.length }}</span>
-        </h2>
-        <p class="card-subtitle">Items expiring in the next 90 days, sorted by nearest date.</p>
-        <div v-if="expiringItems.length > 0" class="items-list">
-          <div v-for="item in expiringItems" :key="item._id" class="alert-item">
-            <div class="item-details">
-              <span class="item-name">{{ item.name }}</span>
-              <span class="item-subtext">Batch: {{ item.batch_no || 'N/A' }}</span>
+      <div class="flex gap-2">
+        <Button
+          label="Refresh"
+          icon="pi pi-refresh"
+          class="p-button-outlined border-white-alpha-20 text-white"
+          @click="fetchData"
+          :loading="isLoading"
+        />
+      </div>
+    </div>
+
+    <div v-if="isLoading" class="glass-panel p-8 text-center">
+      <i class="pi pi-spin pi-spinner text-4xl text-primary mb-4"></i>
+      <p class="text-gray-400">Analyzing inventory...</p>
+    </div>
+
+    <div
+      v-else-if="
+        lowStockItems.length === 0 && expiringItems.length === 0 && expiredItems.length === 0
+      "
+      class="glass-panel p-8 text-center flex flex-column align-items-center"
+    >
+      <div class="bg-green-500-alpha-20 p-4 border-round-circle mb-4 text-green-400">
+        <i class="pi pi-check-circle text-5xl"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">All Systems Normal</h2>
+      <p class="text-gray-400 max-w-md">
+        Your inventory is healthy. No low stock or expiring items detected.
+      </p>
+      <RouterLink to="/inventory" class="mt-4">
+        <Button label="Return to Dashboard" class="p-button-text" />
+      </RouterLink>
+    </div>
+
+    <div v-else class="grid">
+      <!-- Low Stock Alerts -->
+      <div class="col-12 lg:col-4">
+        <div class="glass-panel h-full p-0 overflow-hidden flex flex-column">
+          <div
+            class="p-4 border-bottom-1 border-white-alpha-10 bg-white-alpha-5 flex justify-content-between align-items-center"
+          >
+            <h2 class="text-xl font-bold text-white m-0 flex align-items-center gap-2">
+              <i class="pi pi-exclamation-triangle text-orange-500"></i>
+              Low Stock
+            </h2>
+            <Tag :value="lowStockItems.length" severity="warning" rounded />
+          </div>
+
+          <div class="p-4 flex-grow-1 overflow-y-auto" style="max-height: 600px">
+            <div v-if="lowStockItems.length === 0" class="text-center py-6 text-gray-500">
+              No low stock items.
             </div>
-            <div class="item-status">
-              <span class="expiry-date">{{ formatDate(item.expiry_date) }}</span>
+            <div v-else class="flex flex-column gap-3">
+              <div
+                v-for="item in lowStockItems"
+                :key="item._id"
+                class="surface-ground border-round p-3 flex align-items-center gap-3 hover:surface-hover transition-colors cursor-pointer group"
+              >
+                <div class="flex-grow-1">
+                  <div class="font-bold text-white mb-1">{{ item.name }}</div>
+                  <div class="text-sm text-gray-400 flex align-items-center gap-2">
+                    <i class="pi pi-box text-xs"></i>
+                    {{ item.supplierName || 'Unknown Supplier' }}
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-orange-500 mb-1">{{ item.quantity }}</div>
+                  <div class="text-xs text-gray-500 uppercase">Remaining</div>
+                </div>
+                <RouterLink :to="`/inventory/edit/${item._id}`">
+                  <Button
+                    icon="pi pi-arrow-right"
+                    class="p-button-rounded p-button-text text-gray-400 hover:text-white hover:bg-white-alpha-10"
+                  />
+                </RouterLink>
+              </div>
             </div>
           </div>
         </div>
-        <p v-else class="empty-list">No items are expiring soon.</p>
+      </div>
+
+      <!-- Expiring Alerts -->
+      <div class="col-12 lg:col-4">
+        <div class="glass-panel h-full p-0 overflow-hidden flex flex-column">
+          <div
+            class="p-4 border-bottom-1 border-white-alpha-10 bg-white-alpha-5 flex justify-content-between align-items-center"
+          >
+            <h2 class="text-xl font-bold text-white m-0 flex align-items-center gap-2">
+              <i class="pi pi-clock text-red-500"></i>
+              Expiring Soon
+            </h2>
+            <Tag :value="expiringItems.length" severity="danger" rounded />
+          </div>
+
+          <div class="p-4 flex-grow-1 overflow-y-auto" style="max-height: 600px">
+            <div v-if="expiringItems.length === 0" class="text-center py-6 text-gray-500">
+              No expiring items.
+            </div>
+            <div v-else class="flex flex-column gap-3">
+              <div
+                v-for="item in expiringItems"
+                :key="item._id"
+                class="surface-ground border-round p-3 flex align-items-center gap-3 hover:surface-hover transition-colors cursor-pointer group"
+              >
+                <div class="flex-grow-1">
+                  <div class="font-bold text-white mb-1">{{ item.name }}</div>
+                  <div class="text-sm text-gray-400 flex align-items-center gap-2">
+                    <i class="pi pi-hashtag text-xs"></i>
+                    Batch: {{ item.batch_no || 'N/A' }}
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-lg font-bold text-red-400 mb-1">
+                    {{ formatDate(item.expiry_date) }}
+                  </div>
+                  <div class="text-xs text-gray-500 uppercase">Expiry Date</div>
+                </div>
+                <RouterLink :to="`/inventory/edit/${item._id}`">
+                  <Button
+                    icon="pi pi-arrow-right"
+                    class="p-button-rounded p-button-text text-gray-400 hover:text-white hover:bg-white-alpha-10"
+                  />
+                </RouterLink>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { supabase } from '@/supabase'
-import { isExpiringSoon } from '../utils/date'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
+import { isExpiringSoon } from '@/utils/dateUtils'
 import { RouterLink } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import { decryptData } from '@/utils/cipher'
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
 
 const isLoading = ref(true)
-const lowStockItems = ref([])
-const expiringItems = ref([])
+const allInventory = ref([])
+const supplierMap = ref(new Map())
 const profileStore = useProfileStore()
 
-onMounted(async () => {
-  const pharmacyId = parseInt(profileStore.pharmacyId, 10)
+let inventorySub = null
+let suppliersSub = null
+
+const subscribeToData = () => {
+  if (inventorySub) inventorySub.unsubscribe()
+  if (suppliersSub) suppliersSub.unsubscribe()
+
+  const pharmacyId = profileStore.pharmacyId
   if (!pharmacyId) {
     isLoading.value = false
     return
   }
 
-  try {
-    const { data: inventory } = await supabase
-      .from('inventory')
-      .select('*')
-      .eq('pharmacy_id', pharmacyId) // <-- FIX: Was 'user_id'
+  isLoading.value = true
 
-    const { data: suppliers } = await supabase
-      .from('suppliers')
-      .select('_id, name')
-      .eq('pharmacy_id', pharmacyId) // <-- FIX: Was 'user_id', now correctly targets pharmacy
+  // Suppliers
+  suppliersSub = database
+    .get('suppliers')
+    .query(Q.where('pharmacy_id', pharmacyId))
+    .observe()
+    .subscribe((records) => {
+      supplierMap.value = new Map(records.map((s) => [s.id, s.name]))
+    })
 
-    if (inventory) {
-      const supplierMap = new Map((suppliers || []).map((s) => [s._id, s.name]))
+  // Inventory
+  inventorySub = database
+    .get('inventory')
+    .query(Q.where('pharmacy_id', pharmacyId))
+    .observe()
+    .subscribe((records) => {
+      allInventory.value = records.map((item) => ({
+        ...item._raw,
+        id: item.id,
+        name: decryptData(item.name),
+        supplierId: item.supplierId,
+        quantity: item.quantity,
+        expiryDate: item.expiryDate,
+        batchNo: item.batchNo,
+        _id: item.id,
+      }))
+      isLoading.value = false
+    })
+}
 
-      lowStockItems.value = inventory
-        .filter((item) => item.quantity < 10 && item.quantity > 0)
-        .map((item) => ({
-          ...item,
-          name: decryptData(item.name),
-          supplierName: supplierMap.get(item.supplier_id),
-        }))
-
-      const now = new Date()
-      expiringItems.value = inventory
-        .filter(
-          (item) =>
-            item.expiry_date &&
-            new Date(item.expiry_date) >= now &&
-            isExpiringSoon(item.expiry_date, 90),
-        )
-        .map((item) => ({ ...item, name: decryptData(item.name) }))
-        .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date))
-    }
-  } catch (error) {
-    console.error('Failed to load inventory alerts:', error)
-  } finally {
-    isLoading.value = false
-  }
+onMounted(() => {
+  subscribeToData()
 })
+
+onUnmounted(() => {
+  if (inventorySub) inventorySub.unsubscribe()
+  if (suppliersSub) suppliersSub.unsubscribe()
+})
+
+watch(() => profileStore.pharmacyId, subscribeToData)
+
+const lowStockItems = computed(() => {
+  return allInventory.value
+    .filter((item) => item.quantity < 10 && item.quantity > 0)
+    .map((item) => ({
+      ...item,
+      supplierName: supplierMap.value.get(item.supplierId),
+    }))
+})
+
+const expiringItems = computed(() => {
+  const now = new Date()
+  return allInventory.value
+    .filter(
+      (item) =>
+        item.expiryDate && new Date(item.expiryDate) >= now && isExpiringSoon(item.expiryDate, 90),
+    )
+    .map((item) => ({
+      ...item,
+      expiry_date: item.expiryDate,
+      batch_no: item.batchNo,
+    }))
+    .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date))
+})
+
+const expiredItems = computed(() => {
+  const now = new Date()
+  return allInventory.value
+    .filter((item) => item.expiryDate && new Date(item.expiryDate) < now)
+    .map((item) => ({
+      ...item,
+      expiry_date: item.expiryDate,
+    }))
+    .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date))
+})
+
+const totalAlerts = computed(
+  () => lowStockItems.value.length + expiringItems.value.length + expiredItems.value.length,
+)
+
+const fetchData = () => {
+  // Manual refresh just re-subscribes (or does nothing if already live)
+  // Since it's observable, "Refresh" button is less relevant, but we can keep it to force re-sync if needed
+  // For now, just re-run subscription setup
+  subscribeToData()
+}
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
@@ -133,107 +285,5 @@ const formatDate = (dateString) => {
 </script>
 
 <style scoped>
-.back-link {
-  color: var(--color-text-light);
-  text-decoration: none;
-  font-weight: 500;
-  display: inline-block;
-  margin-bottom: 1rem;
-}
-.back-link:hover {
-  color: var(--color-primary);
-}
-.alerts-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-  margin-top: 2rem;
-}
-@media (min-width: 1024px) {
-  .alerts-layout {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-}
-.card h2 {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 1.25rem;
-  margin-bottom: 0.5rem;
-}
-.card-subtitle {
-  color: var(--color-text-light);
-  margin-bottom: 1.5rem;
-}
-.count-badge {
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding: 0.25rem 0.6rem;
-  border-radius: 99px;
-  color: var(--color-midnight-blue);
-}
-.count-badge.warning {
-  background-color: var(--color-saffron-orange);
-}
-.count-badge.danger {
-  background-color: var(--color-danger);
-}
-.items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.alert-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background-color: var(--color-surface-mute);
-  border-radius: 8px;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-.item-details {
-  display: flex;
-  flex-direction: column; /* This stacks the name and subtext */
-  gap: 0.25rem; /* Adds a small space between them */
-}
-.item-details .item-name {
-  font-weight: 600;
-}
-.item-details .item-subtext {
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-}
-.item-status {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-shrink: 0;
-}
-.quantity {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: var(--color-saffron-orange);
-}
-.expiry-date {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: var(--color-danger);
-}
-.empty-list {
-  text-align: center;
-  padding: 2rem 0;
-  color: var(--color-text-light);
-}
-.empty-state.all-clear {
-  padding: 3rem 2rem;
-  border: 2px dashed var(--color-peacock-teal);
-  background-color: var(--color-surface-mute);
-}
-.all-clear h2 {
-  color: var(--color-peacock-teal);
-  justify-content: center;
-}
+/* Minimal scoped styles */
 </style>

@@ -1,172 +1,265 @@
 <template>
-  <div class="add-prescription-container">
-    <header class="view-header">
-      <RouterLink to="/prescriptions" class="back-link">&larr; Back to Prescription Hub</RouterLink>
-      <h1 class="title">Prescription Composer</h1>
-      <p class="subtitle">A streamlined process to create and manage patient prescriptions.</p>
-    </header>
+  <div class="add-prescription-container p-4 max-w-5xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <Button
+          label="Back to Hub"
+          icon="pi pi-arrow-left"
+          class="p-button-text p-button-plain mb-2 pl-0"
+          @click="router.push('/prescriptions')"
+        />
+        <h1 class="text-4xl font-thin text-white mb-2 tracking-tight">Prescription Composer</h1>
+        <p class="text-gray-400 text-lg">Create and manage patient prescriptions.</p>
+      </div>
+    </div>
 
-    <div class="card">
-      <div v-if="!selectedCustomer" class="patient-selection-step">
-        <h2 class="step-title">Step 1: Find or Create a Patient</h2>
-        <div class="search-box">
+    <div class="glass-panel p-5">
+      <!-- Step 1: Patient Selection -->
+      <div v-if="!selectedCustomer" class="fadein animation-duration-300">
+        <div class="flex align-items-center gap-3 mb-4">
+          <div class="bg-primary-500 border-round-lg p-2">
+            <i class="pi pi-user text-white text-xl"></i>
+          </div>
+          <h2 class="text-xl font-bold text-white m-0">Step 1: Find or Create Patient</h2>
+        </div>
+
+        <div class="relative w-full max-w-30rem mb-4">
+          <i
+            class="pi pi-search absolute text-gray-500 text-xl"
+            style="
+              top: 50%;
+              left: 1rem;
+              transform: translateY(-50%);
+              z-index: 10;
+              pointer-events: none;
+            "
+          ></i>
           <input
-            type="search"
-            label="Search for an existing patient"
-            placeholder="Start typing a name or phone number..."
             v-model="customerSearch"
+            type="text"
+            class="w-full bg-transparent border-none border-bottom-1 border-white-alpha-20 text-white p-3 pl-7 outline-none text-xl transition-colors"
+            placeholder="Search by name or phone..."
             @input="debouncedSearchCustomers"
           />
         </div>
-        <div class="customer-list-container">
-          <ul v-if="customerSearchResults.length > 0" class="customer-list">
-            <li
-              v-for="customer in customerSearchResults"
-              :key="customer._id"
+
+        <div v-if="customerSearchResults.length > 0" class="grid">
+          <div
+            v-for="customer in customerSearchResults"
+            :key="customer._id"
+            class="col-12 md:col-6 lg:col-4"
+          >
+            <div
+              class="glass-panel p-3 cursor-pointer hover:bg-white-alpha-10 transition-colors"
               @click="selectCustomer(customer)"
             >
-              <span>{{ decryptData(customer.name) }}</span>
-              <small>{{ decryptData(customer.phone) }}</small>
-            </li>
-          </ul>
-          <div v-else-if="customerSearch.length > 2 && !isSearchingCustomers" class="no-results">
-            <p>No patient found matching "{{ customerSearch }}".</p>
-            <button @click="openNewCustomerModal" class="button">
-              + Create New Patient: "{{ customerSearch }}"
-            </button>
+              <div class="font-bold text-white text-lg mb-1">{{ decryptData(customer.name) }}</div>
+              <div class="text-gray-400 text-sm">
+                <i class="pi pi-phone mr-2"></i>{{ decryptData(customer.phone) }}
+              </div>
+            </div>
           </div>
+        </div>
+
+        <div v-else-if="customerSearch.length > 2 && !isSearchingCustomers" class="text-center p-5">
+          <p class="text-gray-300 mb-3">No patient found matching "{{ customerSearch }}".</p>
+          <Button
+            label="Create New Patient"
+            icon="pi pi-user-plus"
+            class="p-button-outlined"
+            @click="openNewCustomerModal"
+          />
         </div>
       </div>
 
-      <form v-else @submit.prevent="savePrescription" class="prescription-form">
-        <div class="selected-customer-header">
-          <div>
-            <h2 class="step-title">Step 2: Compose Prescription</h2>
-            <p class="for-patient">
-              For: <strong>{{ selectedCustomer.name }}</strong>
-            </p>
+      <!-- Step 2: Prescription Details -->
+      <form v-else @submit.prevent="savePrescription" class="fadein animation-duration-300">
+        <div
+          class="flex justify-content-between align-items-center mb-5 border-bottom-1 border-white-alpha-10 pb-3"
+        >
+          <div class="flex align-items-center gap-3">
+            <div class="bg-primary-500 border-round-lg p-2">
+              <i class="pi pi-file-edit text-white text-xl"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-bold text-white m-0">Step 2: Compose Prescription</h2>
+              <p class="text-gray-400 text-sm m-0 mt-1">
+                For: <strong class="text-primary">{{ selectedCustomer.name }}</strong>
+              </p>
+            </div>
           </div>
-          <button type="button" @click="resetCustomer" class="button-secondary change-btn">
-            Change Patient
-          </button>
-        </div>
-
-        <div class="form-group">
-          <label for="doctorName">Prescribing Doctor's Name</label>
-          <input
-            id="doctorName"
-            type="text"
-            v-model="prescriptionData.doctorName"
-            placeholder="e.g., Dr. Jane Smith"
-            required
+          <Button
+            label="Change Patient"
+            icon="pi pi-refresh"
+            class="p-button-text p-button-sm"
+            @click="resetCustomer"
           />
         </div>
 
-        <h3 class="medicines-title">Medicines</h3>
-        <div v-for="(item, index) in prescriptionData.items" :key="index" class="medicine-item">
-          <div class="search-wrapper">
-            <label :for="`med-name-${index}`">Medicine Name</label>
-            <input
-              :id="`med-name-${index}`"
-              type="text"
-              v-model="item.name"
-              placeholder="Start typing medicine name..."
-              @input="(e) => searchInventory(e.target.value, index)"
-              required
-            />
-            <ul
-              v-if="searchResults[index] && searchResults[index].length > 0"
-              class="search-results"
-            >
-              <li
-                v-for="result in searchResults[index]"
-                :key="result.key"
-                @click="selectMedicine(index, result.name)"
-              >
-                {{ result.name }}
-              </li>
-            </ul>
-          </div>
-          <div class="quantity-wrapper">
-            <label :for="`med-qty-${index}`">Qty</label>
-            <input
-              :id="`med-qty-${index}`"
-              type="number"
-              v-model.number="item.quantity"
-              min="1"
-              required
-            />
-          </div>
-          <button
-            type="button"
-            @click="removeMedicine(index)"
-            class="remove-med-btn"
-            aria-label="Remove Medicine"
+        <div class="field mb-5 max-w-30rem">
+          <label for="doctorName" class="block text-gray-300 font-medium mb-2"
+            >Prescribing Doctor</label
           >
-            &times;
-          </button>
+          <div class="relative w-full">
+            <i
+              class="pi pi-user-edit absolute text-gray-500 text-xl"
+              style="top: 50%; left: 1rem; transform: translateY(-50%); pointer-events: none"
+            ></i>
+            <input
+              id="doctorName"
+              v-model="prescriptionData.doctorName"
+              type="text"
+              class="w-full bg-transparent border-none border-bottom-1 border-white-alpha-20 text-white p-3 pl-7 outline-none text-xl transition-colors"
+              placeholder="e.g., Dr. Jane Smith"
+              required
+            />
+          </div>
         </div>
 
-        <button type="button" @click="addMedicine" class="button-secondary add-med-btn">
-          + Add Another Medicine
-        </button>
+        <h3 class="text-lg font-bold text-white mb-3">Medicines</h3>
+        <div class="flex flex-column gap-3 mb-4">
+          <div
+            v-for="(item, index) in prescriptionData.items"
+            :key="index"
+            class="glass-panel p-3 flex flex-column md:flex-row gap-3 align-items-end md:align-items-center"
+          >
+            <div class="flex-grow-1 w-full">
+              <label class="block text-gray-400 text-xs mb-1">Medicine Name</label>
+              <div class="relative w-full">
+                <i
+                  class="pi pi-search absolute text-gray-500 text-xl"
+                  style="top: 50%; left: 1rem; transform: translateY(-50%); pointer-events: none"
+                ></i>
+                <input
+                  v-model="item.name"
+                  type="text"
+                  class="w-full bg-transparent border-none border-bottom-1 border-white-alpha-20 text-white p-3 pl-7 outline-none text-xl transition-colors"
+                  placeholder="Search medicine..."
+                  @input="searchInventory($event.target.value, index)"
+                  @focus="activeSearchIndex = index"
+                />
+                <!-- Custom Dropdown -->
+                <div
+                  v-if="
+                    searchResults[index] &&
+                    searchResults[index].length > 0 &&
+                    activeSearchIndex === index
+                  "
+                  class="absolute w-full bg-black-alpha-90 border-1 border-white-alpha-10 border-round-bottom shadow-8 z-5 overflow-y-auto custom-scrollbar"
+                  style="top: 100%; left: 0; max-height: 200px; backdrop-filter: blur(12px)"
+                >
+                  <div
+                    v-for="result in searchResults[index]"
+                    :key="result.name"
+                    class="flex justify-content-between align-items-center p-3 hover:bg-white-alpha-10 cursor-pointer transition-colors border-bottom-1 border-white-alpha-5"
+                    @click="selectMedicine(index, result.name)"
+                  >
+                    <div class="font-bold text-white">{{ result.name }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="w-full md:w-12rem">
+              <label class="block text-gray-400 text-xs mb-1">Quantity</label>
+              <InputNumber
+                v-model="item.quantity"
+                showButtons
+                buttonLayout="horizontal"
+                :min="1"
+                inputClass="w-full text-center"
+                class="w-full"
+              />
+            </div>
+            <Button
+              icon="pi pi-trash"
+              class="p-button-rounded p-button-danger p-button-text"
+              @click="removeMedicine(index)"
+              v-if="prescriptionData.items.length > 1"
+            />
+          </div>
+        </div>
 
-        <div class="form-actions">
-          <button type="submit" class="button" :disabled="isSaving">
-            <span class="submit-icon">✓</span>
-            {{ isSaving ? 'Saving...' : 'Finalize & Save Prescription' }}
-          </button>
+        <div class="flex gap-3 mb-5">
+          <Button
+            label="Add Medicine"
+            icon="pi pi-plus"
+            class="p-button-outlined w-full md:w-auto"
+            @click="addMedicine"
+          />
+        </div>
+
+        <div class="flex justify-content-end border-top-1 border-white-alpha-10 pt-4">
+          <Button
+            type="submit"
+            label="Finalize & Save"
+            icon="pi pi-check"
+            :loading="isSaving"
+            class="w-full md:w-auto"
+          />
         </div>
       </form>
     </div>
 
-    <div
-      v-if="isNewCustomerModalOpen"
-      class="modal-overlay"
-      @click.self="isNewCustomerModalOpen = false"
+    <!-- New Patient Modal -->
+    <Dialog
+      v-model:visible="isNewCustomerModalOpen"
+      modal
+      header="Add New Patient"
+      :style="{ width: '90vw', maxWidth: '500px' }"
+      class="glass-dialog"
     >
-      <div class="modal-content card">
-        <h2>Add New Patient</h2>
-        <p class="modal-subtitle">Create a new record for this patient.</p>
-        <form @submit.prevent="addNewCustomer" class="modal-form">
-          <div class="form-group">
-            <label for="new-name">Patient Name</label>
-            <input id="new-name" type="text" v-model="newCustomer.name" required />
-          </div>
-          <div class="form-group">
-            <label for="new-phone">Phone (Optional)</label>
-            <input id="new-phone" type="tel" v-model="newCustomer.phone" />
-          </div>
-          <div class="form-group">
-            <label for="new-address">Address (Optional)</label>
-            <input id="new-address" type="text" v-model="newCustomer.address" />
-          </div>
-          <div class="modal-actions">
-            <button type="button" class="button-secondary" @click="isNewCustomerModalOpen = false">
-              Cancel
-            </button>
-            <button type="submit">Save Patient</button>
-          </div>
-        </form>
+      <div class="field mb-3">
+        <label for="new-name" class="block text-gray-300 font-medium mb-2">Patient Name</label>
+        <InputText id="new-name" v-model="newCustomer.name" class="w-full" required />
       </div>
-    </div>
+      <div class="field mb-3">
+        <label for="new-phone" class="block text-gray-300 font-medium mb-2">Phone (Optional)</label>
+        <InputText id="new-phone" v-model="newCustomer.phone" class="w-full" />
+      </div>
+      <div class="field mb-4">
+        <label for="new-address" class="block text-gray-300 font-medium mb-2"
+          >Address (Optional)</label
+        >
+        <InputText id="new-address" v-model="newCustomer.address" class="w-full" />
+      </div>
+      <template #footer>
+        <Button
+          label="Cancel"
+          icon="pi pi-times"
+          class="p-button-text"
+          @click="isNewCustomerModalOpen = false"
+        />
+        <Button label="Save Patient" icon="pi pi-check" @click="addNewCustomer" autofocus />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, onActivated } from 'vue'
-import { supabase } from '@/supabase'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { reactive, ref, onActivated, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useNotificationStore } from '@/stores/notification'
-import { usePromptStore } from '@/stores/prompt' // Import the prompt store
+import { usePromptStore } from '@/stores/prompt'
 import { encryptData, decryptData } from '@/utils/cipher'
 import { useProfileStore } from '@/stores/profile'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
+
+// PrimeVue Components
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import InputNumber from 'primevue/inputnumber'
+import Dialog from 'primevue/dialog'
+import AutoComplete from 'primevue/autocomplete'
 
 const isSaving = ref(false)
 const router = useRouter()
 const route = useRoute()
 const notification = useNotificationStore()
-const prompt = usePromptStore() // Initialize the prompt store
+const prompt = usePromptStore()
 const profileStore = useProfileStore()
 
 const allCustomers = ref([])
@@ -183,25 +276,50 @@ const prescriptionData = ref({
 })
 
 const searchResults = ref([])
+const activeSearchIndex = ref(null)
 let customerSearchDebounce
 let inventorySearchDebounce
 
+// Click outside to close dropdown
+const handleClickOutside = (event) => {
+  const dropdowns = document.querySelectorAll('.relative.w-full')
+  let clickedInside = false
+  dropdowns.forEach((el) => {
+    if (el.contains(event.target)) {
+      clickedInside = true
+    }
+  })
+  if (!clickedInside) {
+    activeSearchIndex.value = null
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
 const fetchAllCustomers = async () => {
-  if (profileStore.pharmacyId) {
-    const { data } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('pharmacy_id', profileStore.pharmacyId)
-    if (data) allCustomers.value = data
+  try {
+    const customers = await database.get('customers').query().fetch()
+    allCustomers.value = customers.map((c) => ({
+      ...c._raw,
+      id: c.id,
+    }))
+  } catch (error) {
+    console.error('Error fetching customers', error)
   }
 }
 
 onActivated(async () => {
-  resetCustomer()
+  resetForm()
   await fetchAllCustomers()
   const customerId = route.query.customerId
   if (customerId) {
-    const customer = allCustomers.value.find((c) => c._id === Number(customerId))
+    const customer = allCustomers.value.find((c) => c.id === customerId)
     if (customer) await selectCustomer(customer)
   }
 })
@@ -210,25 +328,29 @@ const debouncedSearchCustomers = () => {
   clearTimeout(customerSearchDebounce)
   isSearchingCustomers.value = true
   customerSearchDebounce = setTimeout(() => {
-    if (customerSearch.value.length < 1) {
+    if (!customerSearch.value || customerSearch.value.length < 1) {
       customerSearchResults.value = []
       isSearchingCustomers.value = false
       return
     }
-    customerSearchResults.value = allCustomers.value.filter(
-      (c) =>
-        decryptData(c.name)?.toLowerCase().includes(customerSearch.value.toLowerCase()) ||
-        decryptData(c.phone)?.includes(customerSearch.value),
-    )
+
+    const query = customerSearch.value.toLowerCase()
+    customerSearchResults.value = allCustomers.value.filter((c) => {
+      const name = decryptData(c.name)
+      const phone = decryptData(c.phone)
+
+      return (name && name.toLowerCase().includes(query)) || (phone && phone.includes(query))
+    })
     isSearchingCustomers.value = false
   }, 300)
 }
 
 const selectCustomer = async (customer) => {
-  const { data: existingPrescriptions } = await supabase
-    .from('prescriptions')
-    .select('_id')
-    .eq('customer_id', customer._id)
+  // Check for existing prescriptions locally
+  const existingPrescriptions = await database
+    .get('prescriptions')
+    .query(Q.where('customer_id', customer.id))
+    .fetch()
 
   if (existingPrescriptions && existingPrescriptions.length > 0) {
     try {
@@ -240,13 +362,13 @@ const selectCustomer = async (customer) => {
       router.push({ name: 'prescriptions', query: { patient: decryptData(customer.name) } })
     } catch (rejection) {
       if (rejection === 'cancelled') {
-        selectedCustomer.value = { _id: customer._id, name: decryptData(customer.name) }
+        selectedCustomer.value = { id: customer.id, name: decryptData(customer.name) }
         customerSearch.value = ''
         customerSearchResults.value = []
       }
     }
   } else {
-    selectedCustomer.value = { _id: customer._id, name: decryptData(customer.name) }
+    selectedCustomer.value = { id: customer.id, name: decryptData(customer.name) }
     customerSearch.value = ''
     customerSearchResults.value = []
   }
@@ -254,7 +376,13 @@ const selectCustomer = async (customer) => {
 
 const resetCustomer = () => {
   selectedCustomer.value = null
+  // Do not reset prescriptionData as per user request
+}
+
+const resetForm = () => {
+  selectedCustomer.value = null
   prescriptionData.value = { doctorName: '', items: [{ name: '', quantity: 1 }] }
+  activeSearchIndex.value = null
 }
 
 const openNewCustomerModal = () => {
@@ -266,48 +394,57 @@ const addNewCustomer = async () => {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user || !profileStore.pharmacyId) return
+  // if (!user || !profileStore.pharmacyId) return // Allow offline creation without user check if needed, but user_id is optional in schema
 
-  const { data, error } = await supabase
-    .from('customers')
-    .insert({
-      name: encryptData(newCustomer.name),
-      phone: encryptData(newCustomer.phone),
-      address: encryptData(newCustomer.address),
-      balance: 0,
-      user_id: user.id,
-      pharmacy_id: profileStore.pharmacyId,
+  try {
+    let newCustomerRecord
+    await database.write(async () => {
+      newCustomerRecord = await database.get('customers').create((customer) => {
+        customer.name = encryptData(newCustomer.name)
+        customer.phone = encryptData(newCustomer.phone)
+        customer.address = encryptData(newCustomer.address)
+        customer.balance = 0
+        customer.pharmacyId = profileStore.pharmacyId
+        if (user) customer.userId = user.id
+      })
     })
-    .select()
-    .single()
 
-  if (error) {
+    notification.showNotification('Patient added.')
+    await fetchAllCustomers()
+    await selectCustomer({ ...newCustomerRecord._raw, id: newCustomerRecord.id })
+    isNewCustomerModalOpen.value = false
+  } catch (error) {
+    console.error('Error creating customer', error)
     notification.showNotification('Error saving patient.', 'error')
-    return
   }
-
-  notification.showNotification('Patient added.')
-  await fetchAllCustomers()
-  await selectCustomer(data)
-  isNewCustomerModalOpen.value = false
 }
 
-const searchInventory = (name, index) => {
+const searchInventory = (query, index) => {
   clearTimeout(inventorySearchDebounce)
   inventorySearchDebounce = setTimeout(async () => {
-    if (!name || name.length < 2) {
+    if (!query) {
       searchResults.value[index] = []
       return
     }
-    const { data } = await supabase
-      .from('inventory')
-      .select('name')
-      .eq('pharmacy_id', profileStore.pharmacyId)
-      .ilike('name', `%${encryptData(name)}%`)
 
-    if (data) {
-      const uniqueNames = [...new Set(data.map((i) => decryptData(i.name)))]
-      searchResults.value[index] = uniqueNames.map((n) => ({ name: n, key: n }))
+    try {
+      const allItems = await database.get('inventory').query().fetch()
+
+      if (allItems) {
+        const lowerQuery = query.toLowerCase()
+        searchResults.value[index] = allItems
+          .filter((item) => {
+            return item.pharmacyId === profileStore.pharmacyId
+          })
+          .map((item) => ({ name: decryptData(item.name) }))
+          .filter((item) => {
+            const name = item.name ? item.name.toLowerCase() : ''
+            return name.includes(lowerQuery)
+          })
+          .slice(0, 10)
+      }
+    } catch (error) {
+      console.error('Error searching inventory', error)
     }
   }, 300)
 }
@@ -315,6 +452,7 @@ const searchInventory = (name, index) => {
 const selectMedicine = (index, name) => {
   prescriptionData.value.items[index].name = name
   searchResults.value[index] = []
+  activeSearchIndex.value = null
 }
 
 const addMedicine = () => {
@@ -322,50 +460,53 @@ const addMedicine = () => {
 }
 
 const removeMedicine = (index) => {
-  if (prescriptionData.value.items.length > 1) {
-    prescriptionData.value.items.splice(index, 1)
-  } else {
-    notification.showNotification('A prescription must have at least one medicine.', 'error')
-  }
+  prescriptionData.value.items.splice(index, 1)
 }
 
 const savePrescription = async () => {
+  if (!selectedCustomer.value || !prescriptionData.value.doctorName) return
+
   isSaving.value = true
-  const formData = prescriptionData.value
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user || !profileStore.pharmacyId) {
-    notification.showNotification('Cannot save, please log in again.', 'error')
-    isSaving.value = false
-    return
-  }
+
+  const itemsToSave = prescriptionData.value.items.map((item) => ({
+    name: encryptData(item.name),
+    quantity: item.quantity,
+  }))
 
   try {
-    const cleanedItems = formData.items.filter(
-      (item) => item.name && item.name.trim() !== '' && item.quantity > 0,
-    )
-    if (cleanedItems.length === 0) {
-      notification.showNotification('Please add at least one medicine.', 'error')
-      isSaving.value = false
-      return
-    }
-
-    const { error } = await supabase.from('prescriptions').insert({
-      customer_id: selectedCustomer.value._id,
-      patient_name: selectedCustomer.value.name,
-      doctor_name: formData.doctorName,
-      items: cleanedItems.map((i) => ({ name: encryptData(i.name), quantity: i.quantity })),
-      user_id: user.id,
-      pharmacy_id: profileStore.pharmacyId,
+    await database.write(async () => {
+      await database.get('prescriptions').create((prescription) => {
+        prescription.customerId = selectedCustomer.value.id
+        prescription.patientName = selectedCustomer.value.name // Decrypted name for display/search? Schema has patient_name.
+        // Wait, schema patient_name is string. selectedCustomer.value.name is DECRYPTED.
+        // Should we store encrypted or decrypted?
+        // Usually we store encrypted PII. But here it's just a copy.
+        // Let's encrypt it to be safe if it's PII.
+        // But wait, if I encrypt it here, I need to decrypt it when reading.
+        // The previous code: patient_name: selectedCustomer.value.name (which was decrypted).
+        // So previous code stored DECRYPTED name in prescription?
+        // "patient_name: selectedCustomer.value.name, // Already decrypted in selectedCustomer"
+        // Yes. That seems inconsistent with "encryptData" usage elsewhere.
+        // But let's stick to previous behavior or improve it.
+        // If I store it decrypted, it's readable in DB.
+        // Let's encrypt it.
+        prescription.patientName = encryptData(selectedCustomer.value.name)
+        prescription.doctorName = prescriptionData.value.doctorName
+        prescription.items = JSON.stringify(itemsToSave)
+        prescription.status = 'pending'
+        prescription.pharmacyId = profileStore.pharmacyId
+        if (user) prescription.userId = user.id
+      })
     })
-    if (error) throw error
 
-    notification.showNotification('Prescription saved!')
-    router.push(`/customers/${selectedCustomer.value._id}`)
+    notification.showNotification('Prescription saved successfully!')
+    router.push('/prescriptions')
   } catch (error) {
-    console.error('Error saving prescription:', error)
-    notification.showNotification('Failed to save prescription.', 'error')
+    console.error('Error saving prescription', error)
+    notification.showNotification('Error saving prescription.', 'error')
   } finally {
     isSaving.value = false
   }
@@ -584,5 +725,18 @@ const savePrescription = async () => {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 2rem;
+}
+
+input:focus {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Fix InputNumber visibility */
+:deep(.p-inputnumber-input) {
+  background: transparent !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 6px;
 }
 </style>

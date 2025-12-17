@@ -1,81 +1,149 @@
 <template>
-  <div class="prescriptions-container">
-    <header class="view-header">
-      <h1 class="title">Prescription Hub</h1>
-      <p class="subtitle">Search, manage, and dispense all patient prescriptions.</p>
-    </header>
-
-    <div class="actions-header">
-      <div class="search-box">
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="Search by Patient, Doctor, or Medicine..."
-        />
+  <div class="prescriptions-container p-4 max-w-7xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <h1 class="text-4xl font-thin text-white mb-2 tracking-tight">Prescription Hub</h1>
+        <p class="text-gray-400 text-lg">Search, manage, and dispense patient prescriptions.</p>
       </div>
-      <RouterLink to="/add-prescription" class="button">+ New Prescription</RouterLink>
+      <Button
+        label="New Prescription"
+        icon="pi pi-plus"
+        class="p-button-primary"
+        @click="router.push('/add-prescription')"
+      />
     </div>
 
-    <div class="card">
-      <div v-if="isLoading" class="loading-state">
-        <p>Loading prescriptions...</p>
+    <!-- Clean Command Bar -->
+    <div
+      class="mb-6 sticky top-0 z-5 bg-blur py-2"
+      style="backdrop-filter: blur(12px); margin: 0 -1rem; padding: 1rem"
+    >
+      <div class="max-w-7xl mx-auto px-3">
+        <div class="relative w-full">
+          <i
+            class="pi pi-search absolute text-gray-500 text-xl"
+            style="top: 50%; left: 1rem; transform: translateY(-50%); pointer-events: none"
+          ></i>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="w-full bg-transparent border-none border-bottom-1 border-white-alpha-20 text-white p-3 pl-7 outline-none text-xl transition-colors"
+            placeholder="Search by Patient, Doctor, or Medicine..."
+          />
+        </div>
       </div>
-      <div v-else-if="filteredPrescriptions.length === 0" class="empty-state">
-        <h2>No prescriptions found.</h2>
-        <p>Click "+ New Prescription" to create the first one.</p>
-      </div>
-      <div v-else class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Patient Details</th>
-              <th>Prescribed By</th>
-              <th>Items</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="rx in filteredPrescriptions" :key="rx._id">
-              <td data-label="Patient">
-                <div class="patient-details">
-                  <span class="patient-name">{{ rx.patient_name }}</span>
-                  <span class="date">{{ formatDate(rx.created_at) }}</span>
-                </div>
-              </td>
-              <td data-label="Prescribed By">{{ rx.doctor_name }}</td>
-              <td data-label="Items">
-                <ul class="items-list">
-                  <li v-for="item in rx.items" :key="item.name">
-                    {{ decryptData(item.name) }} ({{ item.quantity }})
-                  </li>
-                </ul>
-              </td>
-              <td data-label="Status">
-                <span class="status-badge" :class="rx.status">{{ rx.status }}</span>
-              </td>
-              <td data-label="Actions">
-                <div class="actions-group">
-                  <button @click="dispense(rx)" class="action-button dispense">Dispense</button>
-                  <RouterLink :to="`/prescriptions/edit/${rx._id}`" class="action-button edit"
-                    >Edit</RouterLink
-                  >
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    </div>
+
+    <!-- Prescriptions List -->
+    <div class="glass-panel p-0 overflow-hidden">
+      <DataTable
+        :value="filteredPrescriptions"
+        :loading="isLoading"
+        responsiveLayout="scroll"
+        :paginator="true"
+        :rows="10"
+        class="glass-datatable"
+        rowHover
+      >
+        <template #empty>
+          <div class="text-center p-6">
+            <div class="bg-white-alpha-5 p-4 border-round-circle inline-flex mb-3">
+              <i class="pi pi-file text-4xl text-gray-500"></i>
+            </div>
+            <h3 class="text-xl text-white font-bold mb-2">No prescriptions found</h3>
+            <p class="text-gray-400">Create a new prescription to get started.</p>
+          </div>
+        </template>
+
+        <Column field="patientName" header="Patient Details" sortable>
+          <template #body="{ data }">
+            <div class="flex align-items-center gap-3">
+              <div class="bg-white-alpha-10 p-2 border-round border-1 border-white-alpha-10">
+                <i class="pi pi-user text-primary"></i>
+              </div>
+              <div>
+                <div class="font-bold text-white">{{ decryptData(data.patientName) }}</div>
+                <div class="text-xs text-gray-400">{{ formatDate(data.createdAt) }}</div>
+              </div>
+            </div>
+          </template>
+        </Column>
+
+        <Column field="doctorName" header="Prescribed By" sortable>
+          <template #body="{ data }">
+            <div class="text-gray-200">{{ data.doctorName }}</div>
+          </template>
+        </Column>
+
+        <Column header="Items">
+          <template #body="{ data }">
+            <div class="flex flex-wrap gap-2">
+              <Tag
+                v-for="item in data.items.slice(0, 3)"
+                :key="item.name"
+                :value="`${decryptData(item.name)} (${item.quantity})`"
+                class="glass-tag text-xs"
+              />
+              <Tag
+                v-if="data.items.length > 3"
+                :value="`+${data.items.length - 3} more`"
+                severity="secondary"
+                class="text-xs"
+              />
+            </div>
+          </template>
+        </Column>
+
+        <Column field="status" header="Status" sortable>
+          <template #body="{ data }">
+            <Tag
+              :value="data.status"
+              :severity="getStatusSeverity(data.status)"
+              class="uppercase text-xs font-bold"
+            />
+          </template>
+        </Column>
+
+        <Column header="Actions" :exportable="false" style="min-width: 12rem">
+          <template #body="{ data }">
+            <div class="flex gap-2 justify-content-end">
+              <Button
+                v-if="data.status !== 'dispensed'"
+                label="Dispense"
+                icon="pi pi-check"
+                class="p-button-sm p-button-outlined p-button-success"
+                @click="dispense(data)"
+              />
+              <Button
+                icon="pi pi-pencil"
+                class="p-button-rounded p-button-text text-gray-400 hover:text-white"
+                v-tooltip.top="'Edit'"
+                @click="router.push(`/prescriptions/edit/${data._id}`)"
+              />
+            </div>
+          </template>
+        </Column>
+      </DataTable>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onActivated, computed } from 'vue'
-import { supabase } from '@/supabase'
-import { useRouter, RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import { decryptData } from '@/utils/cipher'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
+
+// PrimeVue Components
+import Button from 'primevue/button'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Tag from 'primevue/tag'
 
 const router = useRouter()
 const profile = useProfileStore()
@@ -85,21 +153,25 @@ const isLoading = ref(true)
 
 const fetchPrescriptions = async () => {
   isLoading.value = true
-  const pharmacyId = parseInt(profile.pharmacyId, 10)
-  if (!pharmacyId) {
-    isLoading.value = false
-    return
-  }
-  const { data, error } = await supabase
-    .from('prescriptions')
-    .select('*')
-    .eq('pharmacy_id', pharmacyId)
-    .order('created_at', { ascending: false })
+  try {
+    const prescriptions = await database
+      .get('prescriptions')
+      .query(Q.where('pharmacy_id', profile.pharmacyId), Q.sortBy('created_at', Q.desc))
+      .fetch()
 
-  if (data) {
-    allPrescriptions.value = data
+    allPrescriptions.value = prescriptions.map((rx) => ({
+      _id: rx.id,
+      patientName: rx.patientName,
+      doctorName: rx.doctorName,
+      items: rx.items,
+      status: rx.status,
+      createdAt: rx.createdAt,
+    }))
+  } catch (error) {
+    console.error('Error fetching prescriptions:', error)
+  } finally {
+    isLoading.value = false
   }
-  isLoading.value = false
 }
 
 onActivated(fetchPrescriptions)
@@ -110,8 +182,8 @@ const filteredPrescriptions = computed(() => {
   }
   const lowerQuery = searchQuery.value.toLowerCase()
   return allPrescriptions.value.filter((rx) => {
-    const patientMatch = rx.patient_name.toLowerCase().includes(lowerQuery)
-    const doctorMatch = rx.doctor_name.toLowerCase().includes(lowerQuery)
+    const patientMatch = rx.patientName.toLowerCase().includes(lowerQuery)
+    const doctorMatch = rx.doctorName.toLowerCase().includes(lowerQuery)
     const itemMatch = rx.items.some((item) =>
       decryptData(item.name)?.toLowerCase().includes(lowerQuery),
     )
@@ -123,109 +195,42 @@ const dispense = (rx) => {
   router.push({ name: 'record-sale', query: { fromRx: rx._id } })
 }
 
-const formatDate = (dateString) =>
-  new Date(dateString).toLocaleDateString('en-GB', {
+const formatDate = (date) => {
+  if (!date) return ''
+  return new Date(date).toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   })
+}
+
+const getStatusSeverity = (status) => {
+  switch (status) {
+    case 'dispensed':
+      return 'success'
+    case 'pending':
+      return 'warning'
+    default:
+      return 'info'
+  }
+}
 </script>
 
 <style scoped>
-.actions-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 2rem;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
+.glass-tag {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
 }
-.search-box {
-  flex-grow: 1;
+
+input:focus {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  outline: none !important;
 }
-.search-box input {
-  width: 100%;
-  max-width: 400px;
-}
-.actions-header .button {
-  width: auto;
-}
-.card {
-  padding: 0;
-}
-.table-container {
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-}
-thead {
-  background-color: var(--color-surface-mute);
-}
-.patient-details {
-  display: flex;
-  flex-direction: column;
-}
-.patient-name {
-  font-weight: 600;
-}
-.date {
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-}
-.items-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.status-badge {
-  font-weight: 600;
-  padding: 0.25rem 0.75rem;
-  border-radius: 99px;
-  font-size: 0.9rem;
-  text-transform: capitalize;
-}
-.status-badge.pending {
-  background-color: var(--color-saffron-orange);
-  color: var(--color-midnight-blue);
-}
-.status-badge.dispensed {
-  background-color: var(--color-peacock-teal);
-  color: var(--color-midnight-blue);
-}
-.actions-group {
-  display: flex;
-  gap: 0.5rem;
-}
-.action-button {
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 500;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-.action-button.dispense {
-  background-color: var(--color-primary);
-  color: var(--color-midnight-blue);
-}
-.action-button.edit {
-  background-color: var(--color-surface-mute);
-  color: var(--color-text-light);
-}
-.empty-state,
-.loading-state {
-  text-align: center;
-  padding: 3rem;
-}
-@media (max-width: 768px) {
-  /* Mobile table styles */
+
+:deep(.p-datatable .p-datatable-thead > tr > th) {
+  padding: 1.5rem 1rem !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 </style>

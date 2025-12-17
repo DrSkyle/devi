@@ -1,233 +1,238 @@
 <template>
-  <aside class="app-sidebar">
-    <div class="sidebar-header">
-      <div class="logo">
-        <span class="logo-placeholder"></span>
-        <div class="logo-text-container">
-          <span class="brand-name">D.E.V.I</span>
-          <span v-if="profile.name" class="pharmacy-name">{{ profile.name }}</span>
-        </div>
+  <aside class="app-sidebar glass-panel flex flex-column h-full relative overflow-hidden">
+    <!-- Logo Section -->
+    <div class="sidebar-header p-4 mb-2 flex align-items-center gap-3">
+      <div
+        class="logo-icon flex align-items-center justify-content-center bg-primary border-round-lg"
+        style="width: 40px; height: 40px; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4)"
+      >
+        <i class="pi pi-heart-fill text-white text-xl"></i>
+      </div>
+      <div class="flex flex-column">
+        <span class="text-xl font-bold text-white tracking-tight">D.E.V.I</span>
+        <span class="text-xs text-gray-400 uppercase tracking-wider">{{
+          profileStore.pharmacyName || 'Pharmacy OS'
+        }}</span>
       </div>
     </div>
 
-    <nav class="navigation">
-      <RouterLink to="/">Dashboard</RouterLink>
-      <RouterLink to="/medicine-finder">Finder</RouterLink>
+    <!-- Navigation Menu -->
+    <div class="flex-grow-1 overflow-y-auto custom-scrollbar px-3">
+      <div class="flex flex-column gap-1">
+        <template v-for="(item, index) in navItems" :key="index">
+          <!-- Section Header -->
+          <div
+            v-if="item.isHeader"
+            class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-4 mb-2 px-3"
+          >
+            {{ item.label }}
+          </div>
 
-      <h4 class="nav-heading">Sales</h4>
-      <RouterLink to="/record-sale">Record Sale</RouterLink>
-      <RouterLink to="/my-transactions">My Recent Sales</RouterLink>
+          <!-- Menu Item -->
+          <RouterLink
+            v-else
+            :to="item.to"
+            class="nav-item flex align-items-center gap-3 px-3 py-3 border-round-xl transition-all duration-200 no-underline mb-1"
+            :class="{ 'active-nav-item': isRouteActive(item.to) }"
+          >
+            <i :class="[item.icon, 'text-lg transition-colors duration-200']"></i>
+            <span class="font-medium text-sm">{{ item.label }}</span>
+            <i
+              v-if="isRouteActive(item.to)"
+              class="pi pi-chevron-right ml-auto text-xs opacity-50"
+            ></i>
+          </RouterLink>
+        </template>
+      </div>
+    </div>
 
-      <RouterLink v-if="staffStore.activeUserRole !== 'cashier'" to="/prescriptions"
-        >Prescriptions</RouterLink
-      >
-
-      <RouterLink v-if="staffStore.activeUserRole === 'admin'" to="/sales-history"
-        >Sales History</RouterLink
-      >
-
-      <RouterLink v-if="staffStore.activeUserRole !== 'cashier'" to="/process-return"
-        >Process Return</RouterLink
-      >
-
-      <h4 class="nav-heading">Customers</h4>
-      <RouterLink to="/customers">All Customers (Khata)</RouterLink>
-
-      <h4 class="nav-heading">Inventory</h4>
-      <RouterLink to="/inventory">Inventory</RouterLink>
-      <RouterLink to="/transfers">Manage Transfers</RouterLink>
-
-      <RouterLink v-if="staffStore.activeUserRole !== 'cashier'" to="/suppliers"
-        >Suppliers</RouterLink
-      >
-
-      <template v-if="staffStore.activeUserRole === 'admin'">
-        <h4 class="nav-heading">Reporting</h4>
-        <RouterLink to="/reports">Financial Reports</RouterLink>
-        <RouterLink to="/analytics">Analytics Dashboard</RouterLink>
-        <RouterLink to="/forecasting">AI Forecasting</RouterLink>
-
-        <RouterLink to="/end-of-day-report">End-of-Day Report</RouterLink>
-        <RouterLink to="/audit-log">Activity Log</RouterLink>
-        <RouterLink v-if="staffStore.activeUserRole === 'admin'" to="/dda-log"
-          >DDA Logbook</RouterLink
+    <!-- Bottom "System" Section -->
+    <div class="p-3 mt-auto">
+      <!-- System Links (My Pharmacy & Settings) -->
+      <div class="flex flex-column gap-1 mb-3 border-top-1 border-white-alpha-10 pt-3">
+        <RouterLink
+          v-if="staffStore.activeUserRole === 'admin'"
+          to="/my-pharmacy"
+          class="flex align-items-center p-3 text-gray-400 hover:text-white hover:bg-white-alpha-10 border-round transition-colors no-underline"
+          :class="{ 'active-nav-item': isRouteActive('/my-pharmacy') }"
         >
-      </template>
-    </nav>
+          <i class="pi pi-building mr-3 text-xl"></i>
+          <span class="font-medium">My Pharmacy</span>
+        </RouterLink>
 
-    <div class="sidebar-footer">
-      <button @click="switchLanguage" class="footer-link language-switcher">
-        {{ locale === 'en' ? 'नेपालीमा बदल्नुहोस्' : 'Switch to English' }}
-      </button>
-      <RouterLink to="/my-pharmacy" class="footer-link">My Pharmacy</RouterLink>
-      <RouterLink v-if="staffStore.activeUserRole === 'admin'" to="/settings" class="footer-link"
-        >Settings</RouterLink
+        <RouterLink
+          v-if="staffStore.activeUserRole === 'admin'"
+          to="/settings"
+          class="flex align-items-center p-3 text-gray-400 hover:text-white hover:bg-white-alpha-10 border-round transition-colors no-underline"
+          :class="{ 'active-nav-item': isRouteActive('/settings') }"
+        >
+          <i class="pi pi-cog mr-3 text-xl"></i>
+          <span class="font-medium">Settings</span>
+        </RouterLink>
+      </div>
+
+      <!-- Logout Button -->
+      <div
+        class="flex align-items-center p-3 text-gray-400 hover:text-white hover:bg-white-alpha-10 border-round transition-colors cursor-pointer mb-2"
+        @click="logOut"
       >
-      <button @click="logOut" class="logout-button">Log Out</button>
+        <i class="pi pi-sign-out mr-3 text-xl"></i>
+        <span class="font-medium">Log Out</span>
+      </div>
     </div>
   </aside>
 </template>
 
 <script setup>
-import { getAuth, signOut } from 'firebase/auth'
-import { useRouter, RouterLink } from 'vue-router'
-import { clearLocalData } from '../db'
-import { useProfileStore } from '@/stores/profile.js'
-import { usePromptStore } from '@/stores/prompt.js'
-import { useStaffStore } from '@/stores/staff.js'
-import { useI18n } from 'vue-i18n'
-import { supabase } from '@/supabase'
+import { computed } from 'vue'
+import { useRouter, useRoute, RouterLink } from 'vue-router'
+
+import { useConfirm } from 'primevue/useconfirm'
+
+import { useStaffStore } from '@/stores/staff'
+import { useProfileStore } from '@/stores/profile'
 
 const router = useRouter()
-const profile = useProfileStore()
-const prompt = usePromptStore()
+const route = useRoute()
 const staffStore = useStaffStore()
-const { locale } = useI18n()
+const profileStore = useProfileStore()
+const confirm = useConfirm()
 
-const switchLanguage = () => {
-  const newLocale = locale.value === 'en' ? 'ne' : 'en'
-  locale.value = newLocale
-  localStorage.setItem('locale', newLocale)
+const navItems = computed(() => {
+  const role = staffStore.activeUserRole || 'admin'
+
+  const allItems = [
+    { label: 'Overview', isHeader: true, roles: ['admin', 'pharmacist', 'cashier'] },
+    { label: 'Dashboard', icon: 'pi pi-home', to: '/', roles: ['admin', 'pharmacist', 'cashier'] },
+    {
+      label: 'Medicine Finder',
+      icon: 'pi pi-search',
+      to: '/medicine-finder',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+
+    { label: 'Management', isHeader: true, roles: ['admin', 'pharmacist', 'cashier'] },
+    {
+      label: 'Inventory',
+      icon: 'pi pi-box',
+      to: '/inventory',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+    {
+      label: 'Sales & Orders',
+      icon: 'pi pi-shopping-cart',
+      to: '/record-sale',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+    {
+      label: 'Customers',
+      icon: 'pi pi-users',
+      to: '/customers',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+    {
+      label: 'Suppliers',
+      icon: 'pi pi-truck',
+      to: '/suppliers',
+      roles: ['admin', 'pharmacist'],
+    },
+    {
+      label: 'Stock Transfers',
+      icon: 'pi pi-arrow-right-arrow-left',
+      to: '/transfers',
+      roles: ['admin', 'pharmacist'],
+    },
+    {
+      label: 'Prescriptions',
+      icon: 'pi pi-file',
+      to: '/prescriptions',
+      roles: ['admin', 'pharmacist'],
+    },
+    {
+      label: 'Process Return',
+      icon: 'pi pi-replay',
+      to: '/process-return',
+      roles: ['admin', 'pharmacist'],
+    },
+
+    { label: 'Reports', isHeader: true, roles: ['admin', 'pharmacist', 'cashier'] },
+    { label: 'Reports', icon: 'pi pi-chart-line', to: '/reports', roles: ['admin'] },
+
+    {
+      label: 'Sales History',
+      icon: 'pi pi-history',
+      to: '/sales-history',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+    { label: 'Activity Log', icon: 'pi pi-shield', to: '/audit-log', roles: ['admin'] },
+    {
+      label: 'Compliance & Audit',
+      icon: 'pi pi-briefcase',
+      to: '/compliance',
+      roles: ['admin', 'pharmacist'],
+    },
+  ]
+
+  return allItems.filter((item) => !item.roles || item.roles.includes(role))
+})
+
+const isRouteActive = (path) => {
+  if (path === '/') return route.path === '/'
+  return route.path.startsWith(path)
 }
 
-const logOut = async () => {
-  try {
-    await prompt.show({
-      type: 'confirm',
-      title: 'Confirm Log Out',
-      message: 'Are you sure you want to log out?',
-      confirmText: 'Log Out',
-      cancelText: 'Cancel',
-    })
-
-    sessionStorage.clear()
-    await supabase.auth.signOut()
-    await clearLocalData()
-    router.push('/login')
-  } catch (error) {
-    if (error !== 'cancelled' && error.message !== 'cancelled') {
-      console.error('Logout failed:', error)
-    }
-  }
+const logOut = () => {
+  confirm.require({
+    message: 'Are you sure you want to log out?',
+    header: 'Confirm Logout',
+    icon: 'pi pi-exclamation-triangle',
+    accept: async () => {
+      sessionStorage.clear()
+      await supabase.auth.signOut()
+      router.push('/login')
+    },
+  })
 }
 </script>
 
 <style scoped>
-/* Styles remain the same */
 .app-sidebar {
-  background-color: var(--color-surface);
-  width: 250px;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 1.5rem 1rem;
-  border-right: 1px solid var(--color-border);
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 10;
+  background: rgba(2, 6, 23, 0.8); /* Deep slate, almost black */
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
-.sidebar-header {
-  margin-bottom: 2.5rem;
-  padding-left: 1rem;
+
+.nav-item {
+  color: var(--text-secondary);
 }
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
 }
-.logo-placeholder {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background-color: var(--color-primary);
+
+.active-nav-item {
+  background: rgba(16, 185, 129, 0.15); /* Green tint */
+  color: var(--accent-glow) !important;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
 }
-.logo-text-container {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
+
+.active-nav-item i {
+  color: var(--accent-glow);
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
 }
-.brand-name {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-heading);
+
+.upgrade-card {
+  background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
-.pharmacy-name {
-  font-size: 0.8rem;
-  color: var(--color-text-light);
+
+/* Custom Scrollbar for sidebar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
-.navigation {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  overflow-y: auto;
-}
-.nav-heading {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-text-light);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1rem 1rem 0.5rem;
-  margin-top: 1rem;
-}
-.nav-heading:first-of-type {
-  margin-top: 0;
-}
-.navigation a {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  color: var(--color-text-light);
-  text-decoration: none;
-  font-weight: 500;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
-  font-size: 1rem;
-}
-.navigation a:hover {
-  background-color: var(--color-surface-mute);
-  color: var(--color-soft-cream);
-}
-.navigation a.router-link-exact-active {
-  background-color: var(--color-primary);
-  color: var(--color-midnight-blue);
-  font-weight: 600;
-}
-.sidebar-footer {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  flex-shrink: 0;
-  padding-top: 1rem;
-}
-.footer-link,
-.logout-button {
-  background-color: var(--color-surface-mute);
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-light);
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  font-size: 1rem;
-  text-decoration: none;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
-}
-.footer-link:hover {
-  background-color: var(--color-slate-gray);
-  color: var(--color-soft-cream);
-  border-color: var(--color-slate-gray);
-}
-.logout-button:hover {
-  background-color: var(--color-danger);
-  color: var(--color-soft-cream);
-  border-color: var(--color-danger);
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 </style>

@@ -1,397 +1,494 @@
 <template>
-  <div class="inventory-container">
-    <header class="view-header">
-      <h1 class="title">Inventory</h1>
-      <p class="subtitle">Search, filter, and manage your entire stock.</p>
-    </header>
+  <div
+    class="inventory-container p-4 max-w-7xl mx-auto relative h-screen flex flex-column overflow-hidden"
+  >
+    <!-- Header & Stats -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">Inventory</h1>
+        <p class="text-gray-400 text-sm">Manage stock & pricing</p>
+      </div>
 
-    <div class="summary-grid">
-      <div
-        class="summary-card interactive"
-        @click="setActiveFilter('all')"
-        :class="{ active: activeFilter === 'all' }"
-      >
-        <h3>Total Batches</h3>
-        <span>{{ allInventory.length }}</span>
-      </div>
-      <div
-        class="summary-card interactive"
-        @click="setActiveFilter('low-stock')"
-        :class="{ active: activeFilter === 'low-stock' }"
-      >
-        <h3>Low Stock Items</h3>
-        <span class="warning-text">{{ lowStockCount }}</span>
-      </div>
-      <div
-        class="summary-card interactive"
-        @click="setActiveFilter('expiring-soon')"
-        :class="{ active: activeFilter === 'expiring-soon' }"
-      >
-        <h3>Expiring Soon (90d)</h3>
-        <span class="danger-text">{{ expiringSoonCount }}</span>
+      <!-- Desktop Actions -->
+      <div class="hidden md:flex gap-3">
+        <RouterLink to="/inventory-alerts" v-if="staffStore.activeUserRole !== 'cashier'">
+          <Button
+            icon="pi pi-bell"
+            class="p-button-rounded p-button-text text-gray-400 hover:text-white hover:bg-white-alpha-10"
+            v-tooltip.bottom="'View Alerts'"
+            :badge="totalAlerts > 0 ? totalAlerts.toString() : null"
+            badgeSeverity="danger"
+          />
+        </RouterLink>
+        <RouterLink to="/add-inventory">
+          <Button
+            label="Add Stock"
+            icon="pi pi-plus"
+            class="p-button-rounded bg-primary border-none hover:bg-primary-600 shadow-4 font-bold px-4"
+          />
+        </RouterLink>
       </div>
     </div>
 
-    <div class="actions-header">
-      <div class="search-box">
-        <input type="text" v-model="searchQuery" placeholder="Search by name or brand..." />
-      </div>
-      <RouterLink
-        v-if="staffStore.activeUserRole !== 'cashier'"
-        to="/inventory-alerts"
-        class="button button-secondary"
-      >
-        View Alerts
-      </RouterLink>
-      <RouterLink
-        v-if="staffStore.activeUserRole !== 'cashier'"
-        to="/add-inventory"
-        class="add-new-button button"
-      >
-        + Add New Stock
-      </RouterLink>
-    </div>
+    <!-- Clean Command Bar -->
+    <div
+      class="mb-6 sticky top-0 z-5 bg-blur py-2"
+      style="backdrop-filter: blur(12px); margin: 0 -1rem; padding: 1rem"
+    >
+      <div class="max-w-7xl mx-auto px-3">
+        <!-- Search Input -->
+        <div class="relative w-full mb-3">
+          <i
+            class="pi pi-search absolute text-gray-500 text-xl"
+            style="top: 50%; left: 1rem; transform: translateY(-50%); pointer-events: none"
+          ></i>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="w-full bg-transparent border-none border-bottom-1 border-white-alpha-20 text-white p-3 pl-7 outline-none text-xl transition-colors"
+          />
+        </div>
 
-    <div class="inventory-card">
-      <div v-if="filteredInventory.length > 0" class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Medicine Details</th>
-              <th>Quantity</th>
-              <th>Selling Price</th>
-              <th>Expiry Date</th>
-              <th v-if="staffStore.activeUserRole !== 'cashier'">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="result in filteredInventory"
-              :key="result.item._id"
-              :class="{
-                'low-stock': result.item.quantity < 10,
-                'expiring-soon': isExpiringSoon(result.item.expiry_date, 90),
-              }"
+        <!-- Minimal Filter Tabs -->
+        <div class="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+          <button
+            @click="activeFilter = 'all'"
+            class="bg-transparent border-none cursor-pointer text-sm font-medium transition-colors white-space-nowrap pb-1 border-bottom-2"
+            :class="
+              activeFilter === 'all'
+                ? 'text-primary border-primary'
+                : 'text-gray-500 border-transparent hover:text-gray-300'
+            "
+          >
+            In Stock <span class="text-xs opacity-70 ml-1">({{ allInventory.length }})</span>
+          </button>
+
+          <button
+            @click="activeFilter = 'low-stock'"
+            class="bg-transparent border-none cursor-pointer text-sm font-medium transition-colors white-space-nowrap pb-1 border-bottom-2"
+            :class="
+              activeFilter === 'low-stock'
+                ? 'text-orange-500 border-orange-500'
+                : 'text-gray-500 border-transparent hover:text-gray-300'
+            "
+          >
+            Low Stock
+            <span class="text-xs opacity-70 ml-1" v-if="lowStockCount > 0"
+              >({{ lowStockCount }})</span
             >
-              <td data-label="Medicine Details">
-                <div class="medicine-details">
-                  <span class="medicine-name">{{ result.item.decryptedName }}</span>
-                  <span class="medicine-subtext">{{ result.item.decryptedBrand }}</span>
-                </div>
-              </td>
-              <td data-label="Quantity">
-                <span class="quantity-pill">{{ result.item.quantity }}</span>
-              </td>
-              <td data-label="Selling Price">Rs. {{ result.item.selling_price?.toFixed(2) }}</td>
-              <td data-label="Expiry Date">{{ formatDate(result.item.expiry_date) }}</td>
-              <td v-if="staffStore.activeUserRole !== 'cashier'" data-label="Actions">
-                <div class="actions-group">
-                  <RouterLink :to="`/inventory/edit/${result.item._id}`" class="action-button edit"
-                    >Edit</RouterLink
-                  >
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+          </button>
+
+          <button
+            @click="activeFilter = 'expiring-soon'"
+            class="bg-transparent border-none cursor-pointer text-sm font-medium transition-colors white-space-nowrap pb-1 border-bottom-2"
+            :class="
+              activeFilter === 'expiring-soon'
+                ? 'text-red-500 border-red-500'
+                : 'text-gray-500 border-transparent hover:text-gray-300'
+            "
+          >
+            Expiring
+            <span class="text-xs opacity-70 ml-1" v-if="expiringSoonCount > 0"
+              >({{ expiringSoonCount }})</span
+            >
+          </button>
+
+          <button
+            @click="activeFilter = 'expired'"
+            class="bg-transparent border-none cursor-pointer text-sm font-medium transition-colors white-space-nowrap pb-1 border-bottom-2"
+            :class="
+              activeFilter === 'expired'
+                ? 'text-red-600 border-red-600'
+                : 'text-gray-500 border-transparent hover:text-gray-300'
+            "
+          >
+            Expired
+            <span class="text-xs opacity-70 ml-1" v-if="expiredCount > 0"
+              >({{ expiredCount }})</span
+            >
+          </button>
+        </div>
       </div>
-      <div v-else class="empty-state">
-        <h2>No items match your search or filter.</h2>
-        <p>Try a different search term or clear the filter.</p>
+    </div>
+
+    <!-- Inventory List (Virtualized) -->
+    <div class="glass-panel p-0 flex-grow-1 min-h-0 flex flex-column overflow-hidden">
+      <div v-if="isLoading" class="p-4">
+        <div class="flex flex-column gap-3">
+          <div class="flex justify-content-between mb-3">
+            <Skeleton width="10rem" height="2rem" class="bg-white-alpha-10" />
+            <Skeleton width="5rem" height="2rem" class="bg-white-alpha-10" />
+          </div>
+          <Skeleton height="3rem" class="bg-white-alpha-10" v-for="i in 5" :key="i" />
+        </div>
       </div>
+
+      <div v-else class="flex-grow-1 overflow-auto" ref="parentRef">
+        <!-- Hybrid Rendering: Standard for small lists, Virtualized for large -->
+        <div v-if="filteredInventory.length <= 50">
+          <div
+            v-for="item in filteredInventory"
+            :key="item.id"
+            class="flex align-items-center p-3 border-bottom-1 border-white-alpha-10 hover:bg-white-alpha-5 transition-colors"
+          >
+            <!-- Product Name -->
+            <div class="flex-grow-1">
+              <div class="font-bold text-white">
+                {{ item.decryptedName }}
+              </div>
+              <div class="text-xs text-gray-400">
+                {{ item.decryptedBrand }}
+              </div>
+            </div>
+
+            <!-- Stock -->
+            <div class="w-2rem text-center mr-4">
+              <Tag
+                :value="item.quantity"
+                :severity="getStockSeverity(item.quantity)"
+                class="font-mono"
+              />
+            </div>
+
+            <!-- Price -->
+            <div class="w-6rem text-right mr-4">
+              <span class="text-primary font-bold">Rs. {{ item.sellingPrice }}</span>
+            </div>
+
+            <!-- Expiry -->
+            <div class="w-6rem text-right mr-4 hidden md:block">
+              <span :class="getExpiryClass(item.expiryDate)">
+                {{ formatDate(item.expiryDate) }}
+              </span>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-2">
+              <Button
+                icon="pi pi-pencil"
+                class="p-button-rounded p-button-text p-button-sm text-gray-400 hover:text-white"
+                @click="editItem(item)"
+              />
+              <Button
+                icon="pi pi-trash"
+                class="p-button-rounded p-button-text p-button-sm text-red-400 hover:text-red-300"
+                @click="confirmDelete(item)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-else
+          :style="{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }"
+        >
+          <div
+            v-for="virtualRow in rowVirtualizer.getVirtualItems()"
+            :key="virtualRow.key"
+            class="flex align-items-center p-3 border-bottom-1 border-white-alpha-10 hover:bg-white-alpha-5 transition-colors"
+            :style="{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: `${virtualRow.size}px`,
+              transform: `translateY(${virtualRow.start}px)`,
+            }"
+          >
+            <!-- Product Name -->
+            <div class="flex-grow-1">
+              <div class="font-bold text-white">
+                {{ filteredInventory[virtualRow.index].decryptedName }}
+              </div>
+              <div class="text-xs text-gray-400">
+                {{ filteredInventory[virtualRow.index].decryptedBrand }}
+              </div>
+            </div>
+
+            <!-- Stock -->
+            <div class="w-2rem text-center mr-4">
+              <Tag
+                :value="filteredInventory[virtualRow.index].quantity"
+                :severity="getStockSeverity(filteredInventory[virtualRow.index].quantity)"
+                class="font-mono"
+              />
+            </div>
+
+            <!-- Price -->
+            <div class="w-6rem text-right mr-4">
+              <span class="text-primary font-bold"
+                >Rs. {{ filteredInventory[virtualRow.index].sellingPrice }}</span
+              >
+            </div>
+
+            <!-- Expiry -->
+            <div class="w-6rem text-right mr-4 hidden md:block">
+              <span :class="getExpiryClass(filteredInventory[virtualRow.index].expiryDate)">
+                {{ formatDate(filteredInventory[virtualRow.index].expiryDate) }}
+              </span>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-2">
+              <Button
+                icon="pi pi-pencil"
+                class="p-button-rounded p-button-text p-button-sm text-gray-400 hover:text-white"
+                @click="editItem(filteredInventory[virtualRow.index])"
+              />
+              <Button
+                icon="pi pi-trash"
+                class="p-button-rounded p-button-text p-button-sm text-red-400 hover:text-red-300"
+                @click="confirmDelete(filteredInventory[virtualRow.index])"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div v-if="filteredInventory.length === 0" class="text-center p-4 text-gray-400">
+          No items found.
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Floating Actions -->
+    <div class="md:hidden fixed bottom-0 right-0 p-3 pb-7 z-5 flex flex-column gap-3 mb-4">
+      <RouterLink to="/inventory-alerts">
+        <Button
+          icon="pi pi-bell"
+          class="p-button-rounded p-button-secondary shadow-6 w-3rem h-3rem"
+          :badge="totalAlerts > 0 ? totalAlerts.toString() : null"
+          badgeSeverity="danger"
+        />
+      </RouterLink>
+      <RouterLink to="/add-inventory">
+        <Button
+          icon="pi pi-plus"
+          class="p-button-rounded bg-primary border-none shadow-6 w-4rem h-4rem text-xl"
+        />
+      </RouterLink>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onActivated, computed } from 'vue'
-import { supabase } from '@/supabase'
-import { isExpiringSoon } from '../utils/date'
-import { RouterLink } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
+
+import { isExpiringSoon } from '@/utils/dateUtils'
+import { RouterLink, useRouter } from 'vue-router'
 import { decryptData } from '@/utils/cipher'
 import { useStaffStore } from '@/stores/staff.js'
 import { useProfileStore } from '@/stores/profile'
+import { useNotificationStore } from '@/stores/notification'
 import Fuse from 'fuse.js'
+import { useConfirm } from 'primevue/useconfirm'
+
+import { useVirtualizer } from '@tanstack/vue-virtual'
+
+// PrimeVue Components
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
+import Skeleton from 'primevue/skeleton'
 
 const allInventory = ref([])
+const isLoading = ref(true)
 const searchQuery = ref('')
 const activeFilter = ref('all')
 const staffStore = useStaffStore()
 const profileStore = useProfileStore()
-let fuse
+const notification = useNotificationStore()
+const router = useRouter()
+const confirm = useConfirm()
 
-const setupSearch = (inventory) => {
-  const searchableInventory = inventory.map((item) => ({
-    ...item,
-    decryptedName: decryptData(item.name),
-    decryptedBrand: decryptData(item.brand_name),
-  }))
+let subscription = null
 
-  const options = {
-    keys: ['decryptedName', 'decryptedBrand'],
-    includeScore: true,
-    threshold: 0.4,
+const subscribeToInventory = () => {
+  if (subscription) {
+    subscription.unsubscribe()
+    subscription = null
   }
-  fuse = new Fuse(searchableInventory, options)
+
+  if (profileStore.pharmacyId) {
+    const query = database.get('inventory').query(Q.where('pharmacy_id', profileStore.pharmacyId))
+    subscription = query.observe().subscribe((records) => {
+      allInventory.value = records.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      isLoading.value = false
+    })
+  } else {
+    isLoading.value = false
+    allInventory.value = []
+  }
 }
 
-const fetchInventory = async () => {
-  if (profileStore.pharmacyId) {
-    const { data } = await supabase
-      .from('inventory')
-      .select('*')
-      .eq('pharmacy_id', profileStore.pharmacyId)
-      .order('name')
-    if (data) {
-      allInventory.value = data // This reactive update will trigger the computed property
-      setupSearch(data)
+onMounted(async () => {
+  if (!profileStore.pharmacyId) {
+    if (!profileStore.pharmacyId) {
+      await profileStore.loadFromLocalDatabase()
     }
   }
-}
+  subscribeToInventory()
+})
 
-onActivated(fetchInventory)
+onUnmounted(() => {
+  if (subscription) {
+    subscription.unsubscribe()
+  }
+})
 
-const setActiveFilter = (filter) => {
-  activeFilter.value = filter
-}
+watch(
+  () => profileStore.pharmacyId,
+  () => {
+    subscribeToInventory()
+  },
+)
 
 const lowStockCount = computed(() => allInventory.value.filter((item) => item.quantity < 10).length)
 const expiringSoonCount = computed(
-  () => allInventory.value.filter((item) => isExpiringSoon(item.expiry_date, 90)).length,
+  () =>
+    allInventory.value.filter(
+      (item) => isExpiringSoon(item.expiryDate, 90) && !isExpired(item.expiryDate),
+    ).length,
+)
+const expiredCount = computed(
+  () => allInventory.value.filter((item) => isExpired(item.expiryDate)).length,
+)
+const totalAlerts = computed(
+  () => lowStockCount.value + expiringSoonCount.value + expiredCount.value,
 )
 
-// --- THIS IS THE CORRECTED LOGIC ---
 const filteredInventory = computed(() => {
-  // Start with the raw, reactive inventory list. This is the key change.
-  let items = allInventory.value.map((item) => ({
-    ...item,
-    decryptedName: decryptData(item.name),
-    decryptedBrand: decryptData(item.brand_name),
-  }))
+  let items = allInventory.value.map((item) => {
+    const raw = item._raw || {}
+    // Fallback to raw fields if model getters fail
+    const name = item.name || raw.name
+    const brandName = item.brandName || raw.brand_name
+    const quantity = item.quantity !== undefined ? item.quantity : raw.quantity
+    const sellingPrice = item.sellingPrice !== undefined ? item.sellingPrice : raw.selling_price
+    const expiryDate = item.expiryDate || raw.expiry_date
 
-  // 1. Apply filters first.
+    const dName = decryptData(name)
+    const dBrand = decryptData(brandName)
+
+    return {
+      ...raw,
+      id: item.id,
+      name: name,
+      brandName: brandName,
+      quantity: quantity,
+      sellingPrice: sellingPrice,
+      expiryDate: expiryDate,
+      decryptedName: dName || name || 'Unknown Item',
+      decryptedBrand: dBrand || brandName,
+    }
+  })
+
+  // Deduplicate items based on Name + Brand + BatchNo
+  const uniqueItems = []
+  const seenKeys = new Set()
+
+  items.forEach((item) => {
+    // Create a unique key for the item
+    const key = `${item.decryptedName}|${item.decryptedBrand}|${item.batchNo}`.toLowerCase()
+
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      uniqueItems.push(item)
+    }
+  })
+
+  items = uniqueItems
+
   if (activeFilter.value === 'low-stock') {
     items = items.filter((item) => item.quantity < 10)
   } else if (activeFilter.value === 'expiring-soon') {
-    items = items.filter((item) => isExpiringSoon(item.expiry_date, 90))
+    items = items.filter(
+      (item) => isExpiringSoon(item.expiryDate, 90) && !isExpired(item.expiryDate),
+    )
+  } else if (activeFilter.value === 'expired') {
+    items = items.filter((item) => isExpired(item.expiryDate))
   }
 
-  // 2. If there's a search query, perform a fuzzy search on the (potentially filtered) list.
   if (searchQuery.value.length > 1) {
-    // Create a temporary Fuse instance on the current item set to search within filters.
     const searcher = new Fuse(items, {
       keys: ['decryptedName', 'decryptedBrand'],
       includeScore: true,
       threshold: 0.4,
     })
-    return searcher.search(searchQuery.value, { limit: 50 })
+    items = searcher.search(searchQuery.value, { limit: 50 }).map((result) => result.item)
   }
 
-  // 3. If no search is active, return the filtered list, wrapped in the Fuse.js result structure for consistency.
-  return items.map((item) => ({ item }))
+  console.log('InventoryView: Filtered items count:', items.length)
+  return items
+})
+
+const parentRef = ref(null)
+
+const rowVirtualizer = useVirtualizer({
+  count: computed(() => filteredInventory.value.length),
+  getScrollElement: () => parentRef.value,
+  estimateSize: () => 72, // Estimated row height
+  overscan: 5,
 })
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
   return new Date(dateString).toLocaleDateString('en-GB')
 }
+
+const getStockSeverity = (stock) => {
+  if (stock < 10) return 'danger'
+  if (stock < 50) return 'warning'
+  return 'success'
+}
+
+const getExpiryClass = (date) => {
+  if (isExpired(date)) return 'text-red-600 font-bold'
+  if (isExpiringSoon(date, 90)) return 'text-orange-400 font-bold'
+  return 'text-gray-300'
+}
+
+const isExpired = (dateString) => {
+  if (!dateString) return false
+  return new Date(dateString) < new Date()
+}
+
+const editItem = (item) => {
+  router.push(`/inventory/edit/${item.id}`)
+}
+
+const confirmDelete = (item) => {
+  confirm.require({
+    message: `Are you sure you want to delete ${item.decryptedName}?`,
+    header: 'Delete Confirmation',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await database.write(async () => {
+          const itemToDelete = await database.get('inventory').find(item.id)
+          await itemToDelete.markAsDeleted() // Syncable delete
+        })
+        notification.showNotification('Item deleted successfully')
+      } catch (error) {
+        console.error(error)
+        notification.showNotification('Failed to delete item', 'error')
+      }
+    },
+  })
+}
 </script>
 
 <style scoped>
-/* Your existing styles are perfect and do not need to be changed */
-.actions-header .button,
-.actions-header .button-secondary {
-  width: auto;
-  flex-shrink: 0;
-}
-.summary-card.interactive {
-  cursor: pointer;
-  transition:
-    transform 0.2s,
-    border-color 0.2s;
-}
-.summary-card.interactive:hover {
-  transform: translateY(-5px);
-  border-color: var(--color-primary);
-}
-.summary-card.active {
-  border-color: var(--color-peacock-teal);
-  box-shadow: 0 0 10px var(--color-peacock-teal);
-}
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-top: 2rem;
-}
-.summary-card {
-  background-color: var(--color-surface);
-  padding: 1.5rem;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-}
-.summary-card h3 {
-  font-size: 1rem;
-  color: var(--color-text-light);
-  margin-bottom: 0.5rem;
-}
-.summary-card span {
-  font-size: 2rem;
-  font-weight: 700;
-}
-.summary-card .warning-text {
-  color: var(--color-saffron-orange);
-}
-.summary-card .danger-text {
-  color: var(--color-danger);
-}
-.actions-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 2rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-.search-box {
-  flex-grow: 1;
-}
-.search-box input {
-  width: 100%;
-  max-width: 400px;
-}
-.inventory-card {
-  padding: 0;
-  overflow: hidden;
-  background-color: var(--color-surface);
-  border-radius: 12px;
-}
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-thead {
-  background-color: var(--color-surface-mute);
-}
-thead th {
-  font-weight: 600;
-  color: var(--color-light-slate);
-}
-tbody tr:last-child td {
-  border-bottom: none;
-}
-.medicine-details {
-  display: flex;
-  flex-direction: column;
-}
-.medicine-name {
-  font-weight: 600;
-  color: var(--color-soft-cream);
-}
-.medicine-subtext {
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-}
-.quantity-pill {
-  background-color: var(--color-slate-gray);
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-tr.low-stock .quantity-pill {
-  background-color: var(--color-danger);
-  color: var(--color-soft-cream);
-}
-tr.expiring-soon td[data-label='Expiry Date'] {
-  color: var(--color-saffron-orange);
-  font-weight: 600;
-}
-.actions-group {
-  display: flex;
-  gap: 0.5rem;
-}
-.action-button {
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.9rem;
-  border: 1px solid transparent;
-  transition:
-    background-color 0.2s,
-    border-color 0.2s;
-  background: none;
-  cursor: pointer;
-  font-family: inherit;
-}
-.action-button.edit {
-  background-color: var(--color-surface-mute);
-  border-color: var(--color-border);
-  color: var(--color-text-light);
-}
-.action-button.edit:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-.action-button.restock {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-midnight-blue);
-}
-.action-button.restock:hover {
-  background-color: #119c8d;
-}
-@media (max-width: 768px) {
-  .inventory-card {
-    background-color: transparent;
-    border: none;
-  }
-  thead {
-    display: none;
-  }
-  tr {
-    display: block;
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    margin-bottom: 1rem;
-    padding: 1rem;
-  }
-  td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0.5rem;
-    border-bottom: 1px solid var(--color-surface-mute);
-    white-space: normal;
-  }
-  tr td:last-child {
-    border-bottom: none;
-  }
-  td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--color-text-light);
-  }
-  .medicine-details {
-    text-align: right;
-  }
-}
-.empty-state {
-  padding: 4rem 2rem;
-  text-align: center;
+/* Scoped styles are minimal as we use utility classes and global glass-panel */
+input:focus {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
 }
 </style>

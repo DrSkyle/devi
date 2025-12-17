@@ -12,7 +12,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { supabase } from '@/supabase'
 import { useNotificationStore } from '@/stores/notification'
 
 const notification = useNotificationStore()

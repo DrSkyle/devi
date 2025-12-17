@@ -63,7 +63,6 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, RouterLink, useRouter } from 'vue-router'
-import { supabase } from '@/supabase'
 import { useNotificationStore } from '@/stores/notification'
 
 const route = useRoute()
@@ -159,12 +158,13 @@ const savePurchaseOrder = async () => {
       return
     }
 
-    const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsToSave)
-    if (itemsError) throw itemsError
+    const { error: _itemsError } = await supabase.from('purchase_order_items').insert(itemsToSave)
+    if (_itemsError) throw _itemsError
 
     notification.showNotification('Purchase Order saved!')
     router.push(`/suppliers/${supplierId}`)
-  } catch (error) {
+  } catch (_error) {
+    console.error(_error)
     notification.showNotification('Failed to save Purchase Order.', 'error')
   } finally {
     isSaving.value = false

@@ -1,0 +1,16 @@
+{
+  "name": "devi-signaling-server",
+  "version": "1.0.0",
+  "description": "Zero-Cost P2P Signaling Server for Devi Pharmacy Network",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

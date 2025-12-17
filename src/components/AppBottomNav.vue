@@ -1,68 +1,131 @@
 <template>
-  <nav class="bottom-nav">
-    <RouterLink to="/">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-text">Dashboard</span>
-    </RouterLink>
-    <RouterLink to="/inventory">
-      <span class="nav-icon">📦</span>
-      <span class="nav-text">Inventory</span>
-    </RouterLink>
-    <RouterLink to="/record-sale" class="primary-action">
-      <span class="nav-icon">🛒</span>
-      <span class="nav-text">Record Sale</span>
-    </RouterLink>
-    <RouterLink to="/more">
-      <span class="nav-icon">⚙️</span>
-      <span class="nav-text">More</span>
-    </RouterLink>
-  </nav>
+  <div
+    class="app-bottom-nav fixed bottom-0 left-0 w-full z-5 border-top-1 border-white-alpha-10"
+  >
+    <div class="glass-effect absolute inset-0"></div>
+    
+    <div class="relative flex justify-content-around align-items-stretch w-full h-full pb-safe">
+      <div
+        v-for="item in navItems"
+        :key="item.label"
+        class="nav-tab flex flex-1 flex-column align-items-center justify-content-center gap-1 cursor-pointer select-none transition-all duration-200"
+        :class="{ 'active-tab': isActive(item.to) }"
+        @click="handleNavClick(item)"
+        v-ripple
+      >
+        <div class="icon-container relative">
+          <i 
+            :class="[
+              item.icon, 
+              'text-xl transition-all duration-300',
+              isActive(item.to) ? '-translate-y-1' : ''
+            ]"
+          ></i>
+          <span 
+            v-if="isActive(item.to)"
+            class="active-indicator absolute -bottom-2 left-0 w-full border-round-xl bg-primary"
+            style="height: 3px; box-shadow: 0 0 8px var(--primary-color)"
+          ></span>
+        </div>
+        
+        <span 
+          class="text-xs font-medium transition-all duration-200"
+          :class="isActive(item.to) ? 'text-white' : 'text-gray-400'"
+        >
+          {{ item.label }}
+        </span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { RouterLink } from 'vue-router';
+import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStaffStore } from '@/stores/staff'
+import { useGlobalSearch } from '@/composables/useGlobalSearch'
+
+// Haptics (Vibration)
+const vibrate = () => {
+  if (navigator.vibrate) navigator.vibrate(10)
+}
+
+const router = useRouter()
+const route = useRoute()
+const staffStore = useStaffStore()
+const { openSearch } = useGlobalSearch()
+
+const navItems = computed(() => {
+  const role = staffStore.activeUserRole || 'admin'
+
+  const allItems = [
+    { label: 'Home', icon: 'pi pi-home', to: '/', roles: ['admin', 'pharmacist', 'cashier'] },
+    {
+      label: 'Sales',
+      icon: 'pi pi-shopping-bag', // Changed icon for better mobile feel
+      to: '/record-sale',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+    {
+      label: 'Finder', // Renamed for "Network" feel
+      icon: 'pi pi-search',
+      action: () => openSearch(),
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+    {
+      label: 'Patients', // Renamed from Customers
+      icon: 'pi pi-users',
+      to: '/customers',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
+    { label: 'More', icon: 'pi pi-compass', to: '/more', roles: ['admin', 'pharmacist', 'cashier'] },
+  ]
+
+  return allItems.filter((item) => !item.roles || item.roles.includes(role))
+})
+
+const handleNavClick = (item) => {
+  vibrate() // Tactile feedback
+  if (item.action) {
+    item.action()
+  } else if (item.to) {
+    router.push(item.to)
+  }
+}
+
+const isActive = (path) => {
+  if (!path) return false
+  if (path === '/') return route.path === '/'
+  return route.path.startsWith(path)
+}
 </script>
 
 <style scoped>
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 65px;
-  background-color: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  z-index: 100;
+.app-bottom-nav {
+  height: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(10, 10, 10, 0.85); /* Slightly darker for contrast */
 }
-.bottom-nav a {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  color: var(--color-text-light);
-  flex-grow: 1;
-  height: 100%;
-  padding: 0.25rem 0;
+
+.glass-effect {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
-.nav-icon {
-  font-size: 1.5rem;
-  margin-bottom: 4px;
+
+.nav-tab {
+  color: var(--text-secondary);
 }
-.nav-text {
-  font-size: 0.7rem;
-  font-weight: 500;
+
+.active-tab {
+  color: var(--primary-color);
 }
-.bottom-nav a.router-link-exact-active {
-  color: var(--color-primary);
+
+.active-tab i {
+  text-shadow: 0 0 12px rgba(var(--primary-rgb), 0.6);
 }
-.bottom-nav a.primary-action {
-  color: var(--color-primary);
-}
-.bottom-nav a.primary-action .nav-icon {
-    font-size: 1.8rem;
+
+/* Touch feedback */
+.nav-tab:active {
+  transform: scale(0.92);
 }
 </style>

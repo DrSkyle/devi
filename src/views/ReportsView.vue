@@ -1,107 +1,351 @@
 <template>
-  <div class="reports-container">
-    <header class="view-header">
-      <h1 class="title">Financial Reports</h1>
-      <p class="subtitle">Analyze your pharmacy's monthly performance and tax liabilities.</p>
-    </header>
+  <div class="reports-container p-4 max-w-7xl mx-auto min-h-screen">
+    <h1 class="text-4xl font-thin text-white mb-6 tracking-tight">Reports & Analytics</h1>
 
-    <div class="actions-bar">
-      <RouterLink to="/profit-report" class="button">View Profit Report</RouterLink>
-
-      <RouterLink to="/staff-report" class="button">View Staff Performance</RouterLink>
-      <DataExporter
-        :data="formattedMonthlyData"
-        :file-name="`Monthly_Report_${new Date().toISOString().split('T')[0]}.csv`"
-        button-text="Export Monthly Summary (CSV)"
-      />
-    </div>
-
-    <div v-if="!hasData" class="empty-state card">
-      <h2>No Sales Data Yet</h2>
-      <p>Record a few sales to start seeing your financial reports.</p>
-    </div>
-
-    <div v-else>
-      <div class="stat-grid">
-        <div class="stat-card">
-          <h2><span class="currency">Rs.</span> {{ allTimeStats.totalRevenue.toFixed(2) }}</h2>
-          <p>All-Time Revenue</p>
+    <TabView class="glass-tabs">
+      <!-- TAB 1: ANALYTICS (Original ReportsView content) -->
+      <TabPanel header="Dashboard">
+        <div v-if="!hasData" class="glass-panel p-6 text-center">
+          <i class="pi pi-chart-bar text-5xl text-gray-500 mb-3"></i>
+          <h2 class="text-xl text-white mb-2">No Sales Data Yet</h2>
+          <p class="text-gray-400">Record a few sales to start seeing your financial reports.</p>
         </div>
-        <div class="stat-card">
-          <h2><span class="currency">Rs.</span> {{ allTimeStats.totalVat.toFixed(2) }}</h2>
-          <p>Total VAT Collected</p>
-        </div>
-        <div class="stat-card">
-          <h2>{{ allTimeStats.salesCount }}</h2>
-          <p>All-Time Transactions</p>
-        </div>
-      </div>
 
-      <div class="card monthly-summary-card">
-        <h2>Monthly Performance Summary</h2>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Total Revenue</th>
-                <th>VAT Collected</th>
-                <th>Sales Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="month in monthlyData" :key="month.monthYear">
-                <td data-label="Month">{{ month.monthYear }}</td>
-                <td data-label="Total Revenue">Rs. {{ month.revenue.toFixed(2) }}</td>
-                <td data-label="VAT Collected">Rs. {{ month.vat.toFixed(2) }}</td>
-                <td data-label="Sales Count">{{ month.salesCount }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <div v-else class="grid">
+          <!-- Stats Grid -->
+          <div class="col-12 md:col-4">
+            <div
+              class="glass-panel p-4 h-full flex flex-column justify-content-between relative overflow-hidden"
+            >
+              <div class="absolute top-0 right-0 p-3 opacity-10">
+                <i class="pi pi-wallet text-6xl text-primary"></i>
+              </div>
+              <div>
+                <p class="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  All-Time Revenue
+                </p>
+                <h2 class="text-4xl font-bold text-white mt-2">
+                  <span class="text-primary text-2xl mr-1">Rs.</span
+                  >{{ allTimeStats.totalRevenue.toFixed(2) }}
+                </h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 md:col-4">
+            <div
+              class="glass-panel p-4 h-full flex flex-column justify-content-between relative overflow-hidden"
+            >
+              <div class="absolute top-0 right-0 p-3 opacity-10">
+                <i class="pi pi-percentage text-6xl text-green-400"></i>
+              </div>
+              <div>
+                <p class="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  Total VAT Collected
+                </p>
+                <h2 class="text-4xl font-bold text-white mt-2">
+                  <span class="text-green-400 text-2xl mr-1">Rs.</span
+                  >{{ allTimeStats.totalVat.toFixed(2) }}
+                </h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 md:col-4">
+            <div
+              class="glass-panel p-4 h-full flex flex-column justify-content-between relative overflow-hidden"
+            >
+              <div class="absolute top-0 right-0 p-3 opacity-10">
+                <i class="pi pi-shopping-cart text-6xl text-blue-400"></i>
+              </div>
+              <div>
+                <p class="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  All-Time Transactions
+                </p>
+                <h2 class="text-4xl font-bold text-white mt-2">{{ allTimeStats.salesCount }}</h2>
+              </div>
+            </div>
+          </div>
 
-      <div class="card chart-card">
-        <h2>Yearly Sales Trend</h2>
-        <apexchart
-          type="bar"
-          height="350"
-          :options="monthlyChartOptions"
-          :series="monthlyChartSeries"
-        ></apexchart>
-      </div>
-    </div>
+          <!-- Chart -->
+          <div class="col-12">
+            <div class="glass-panel p-4">
+              <h2 class="text-xl font-bold text-white mb-4">Yearly Sales Trend</h2>
+              <apexchart
+                type="bar"
+                height="350"
+                :options="chartOptions"
+                :series="monthlyChartSeries"
+              ></apexchart>
+            </div>
+          </div>
+
+          <!-- Monthly Summary Table -->
+          <div class="col-12">
+            <div class="glass-panel p-0 overflow-hidden">
+              <div
+                class="p-4 border-bottom-1 border-white-alpha-10 flex justify-content-between align-items-center"
+              >
+                <h2 class="text-xl font-bold text-white m-0">Monthly Performance Summary</h2>
+                <DataExporter
+                  :data="formattedMonthlyData"
+                  :file-name="`Monthly_Report_${new Date().toISOString().split('T')[0]}.csv`"
+                  button-text="Export CSV"
+                />
+              </div>
+              <DataTable
+                :value="monthlyData"
+                responsiveLayout="scroll"
+                class="glass-datatable"
+                :rowHover="true"
+              >
+                <Column field="monthYear" header="Month">
+                  <template #body="{ data }"
+                    ><span class="font-bold text-white">{{ data.monthYear }}</span></template
+                  >
+                </Column>
+                <Column field="revenue" header="Total Revenue">
+                  <template #body="{ data }"
+                    ><span class="text-primary font-medium"
+                      >Rs. {{ data.revenue.toFixed(2) }}</span
+                    ></template
+                  >
+                </Column>
+                <Column field="vat" header="VAT Collected">
+                  <template #body="{ data }"
+                    ><span class="text-green-400">Rs. {{ data.vat.toFixed(2) }}</span></template
+                  >
+                </Column>
+                <Column field="salesCount" header="Sales Count">
+                  <template #body="{ data }"
+                    ><span class="text-white">{{ data.salesCount }}</span></template
+                  >
+                </Column>
+              </DataTable>
+            </div>
+          </div>
+        </div>
+      </TabPanel>
+
+      <!-- TAB 2: PROFITABILITY -->
+      <TabPanel header="Profitability">
+        <ProfitReport />
+      </TabPanel>
+
+      <!-- TAB 3: STAFF PERFORMANCE -->
+      <TabPanel header="Staff Performance">
+        <StaffReport />
+      </TabPanel>
+
+      <!-- TAB 4: DAILY CLOSING (Z-REPORT) -->
+      <TabPanel header="Daily Closing (Z-Report)">
+        <div
+          class="flex flex-column md:flex-row justify-content-between align-items-center mb-4 gap-3"
+        >
+          <div class="flex align-items-center gap-2">
+            <label class="text-gray-300">Select Date:</label>
+            <Calendar
+              v-model="selectedDate"
+              dateFormat="yy-mm-dd"
+              showIcon
+              class="glass-calendar"
+              @date-select="generateZReport"
+            />
+          </div>
+          <Button
+            label="Print Report"
+            icon="pi pi-print"
+            @click="printReport"
+            :disabled="!zReport.hasData"
+          />
+        </div>
+
+        <div class="glass-panel p-6 report-paper" id="print-area">
+          <header class="text-center border-bottom-1 border-white-alpha-10 pb-4 mb-4">
+            <h2 class="text-2xl font-bold text-white mb-2">Daily Closing Report</h2>
+            <p v-if="profileStore.pharmacyName" class="text-lg text-primary font-medium">
+              {{ profileStore.pharmacyName }}
+            </p>
+            <p class="text-gray-300 mt-2">
+              <strong>Date:</strong>
+              {{ new Date(selectedDate).toLocaleDateString('en-GB', { dateStyle: 'full' }) }}
+            </p>
+          </header>
+
+          <div v-if="!zReport.hasData" class="text-center py-6">
+            <p class="text-gray-400">No transactions found for this date.</p>
+          </div>
+
+          <div v-else class="grid">
+            <!-- Financial Summary -->
+            <div class="col-12 md:col-6">
+              <section class="mb-5">
+                <h3
+                  class="text-lg font-bold text-white mb-3 border-bottom-1 border-white-alpha-10 pb-2"
+                >
+                  Financial Summary
+                </h3>
+                <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+                  <span class="text-gray-300">Gross Sales</span>
+                  <span class="font-medium text-white"
+                    >Rs. {{ zReport.grossSales.toFixed(2) }}</span
+                  >
+                </div>
+                <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+                  <span class="text-gray-300">Credit Sales</span>
+                  <span class="font-medium text-orange-300"
+                    >Rs. {{ zReport.creditSales.toFixed(2) }}</span
+                  >
+                </div>
+                <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+                  <span class="text-gray-300">Discounts</span>
+                  <span class="font-medium text-red-300"
+                    >- Rs. {{ zReport.totalDiscounts.toFixed(2) }}</span
+                  >
+                </div>
+                <div
+                  class="flex justify-content-between py-2 mt-2 border-top-1 border-white-alpha-20"
+                >
+                  <span class="font-bold text-white">Net Sales</span>
+                  <span class="font-bold text-primary text-xl"
+                    >Rs. {{ (zReport.grossSales - zReport.totalDiscounts).toFixed(2) }}</span
+                  >
+                </div>
+                <div class="flex justify-content-between py-2 mt-2">
+                  <span class="text-gray-400 text-sm">VAT Collected</span>
+                  <span class="text-gray-300 text-sm">Rs. {{ zReport.totalVat.toFixed(2) }}</span>
+                </div>
+              </section>
+            </div>
+
+            <!-- Cash Reconciliation -->
+            <div class="col-12 md:col-6">
+              <section class="mb-5">
+                <h3
+                  class="text-lg font-bold text-white mb-3 border-bottom-1 border-white-alpha-10 pb-2"
+                >
+                  Cash Reconciliation
+                </h3>
+                <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+                  <span class="text-gray-300">Cash Sales</span>
+                  <span class="font-medium text-white">Rs. {{ zReport.cashSales.toFixed(2) }}</span>
+                </div>
+                <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+                  <span class="text-gray-300">Khata Cash Payments</span>
+                  <span class="font-medium text-white">Rs. {{ zReport.khataCash.toFixed(2) }}</span>
+                </div>
+                <div class="flex justify-content-between py-2 border-bottom-1 border-white-alpha-5">
+                  <span class="text-gray-300">Cash Returns</span>
+                  <span class="font-medium text-red-300"
+                    >- Rs. {{ zReport.cashReturns.toFixed(2) }}</span
+                  >
+                </div>
+                <div
+                  class="bg-primary-900 border-round p-3 mt-3 flex justify-content-between align-items-center"
+                >
+                  <span class="font-bold text-white">Expected Cash in Drawer</span>
+                  <span class="font-bold text-white text-xl"
+                    >Rs. {{ zReport.expectedCash.toFixed(2) }}</span
+                  >
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </TabPanel>
+    </TabView>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue'
-import { supabase } from '@/supabase'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
 import VueApexCharts from 'vue3-apexcharts'
 import DataExporter from '@/components/DataExporter.vue'
-import { RouterLink } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
+
+// Components
+import ProfitReport from '@/components/reports/ProfitReport.vue'
+import StaffReport from '@/components/reports/StaffReport.vue'
+
+// PrimeVue Components
+import Button from 'primevue/button'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import TabView from 'primevue/tabview'
+import TabPanel from 'primevue/tabpanel'
+import Calendar from 'primevue/calendar'
 
 const apexchart = VueApexCharts
 const hasData = ref(false)
 const profileStore = useProfileStore()
 
+// --- ANALYTICS STATE ---
 let allSales = []
-
 const monthlyData = ref([])
-const allTimeStats = reactive({
-  totalRevenue: 0,
-  totalVat: 0,
-  salesCount: 0,
-})
+const allTimeStats = reactive({ totalRevenue: 0, totalVat: 0, salesCount: 0 })
 const monthlyChartSeries = ref([])
-const monthlyChartOptions = ref({})
 
-const processData = () => {
+// --- Z-REPORT STATE ---
+const selectedDate = ref(new Date())
+const zReport = reactive({
+  hasData: false,
+  grossSales: 0,
+  totalDiscounts: 0,
+  totalVat: 0,
+  cashSales: 0,
+  creditSales: 0,
+  khataCash: 0,
+  cashReturns: 0,
+  expectedCash: 0,
+})
+
+// --- CHART OPTIONS ---
+const chartOptions = computed(() => ({
+  chart: {
+    type: 'bar',
+    height: 350,
+    toolbar: { show: false },
+    background: 'transparent',
+    fontFamily: 'Inter, sans-serif',
+  },
+  colors: ['#10b981', '#3b82f6'],
+  plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
+  dataLabels: { enabled: false },
+  stroke: { show: true, width: 2, colors: ['transparent'] },
+  xaxis: {
+    categories: monthlyData.value
+      .slice(0, 12)
+      .reverse()
+      .map((m) => m.monthYear.split(' ')[0]),
+    labels: { style: { colors: '#9ca3af' } },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: {
+    title: { text: 'Amount (Rs)', style: { color: '#9ca3af' } },
+    labels: { style: { colors: '#9ca3af' } },
+  },
+  fill: { opacity: 1 },
+  tooltip: { theme: 'dark', y: { formatter: (val) => 'Rs. ' + val.toFixed(2) } },
+  grid: { borderColor: 'rgba(255, 255, 255, 0.05)', strokeDashArray: 4 },
+  legend: { labels: { colors: '#fff' } },
+}))
+
+const formattedMonthlyData = computed(() => {
+  return monthlyData.value.map((item) => ({
+    Month: item.monthYear,
+    'Total Revenue': item.revenue.toFixed(2),
+    'VAT Collected': item.vat.toFixed(2),
+    'Sales Count': item.salesCount,
+  }))
+})
+
+// --- ANALYTICS LOGIC ---
+const processAnalytics = () => {
   if (allSales.length === 0) return
 
   const monthlySummary = allSales.reduce((acc, sale) => {
-    const saleDate = new Date(sale.created_at)
+    const saleDate = new Date(sale.created_at || sale.createdAt)
     const monthYear = saleDate.toLocaleString('default', { month: 'long', year: 'numeric' })
 
     if (!acc[monthYear]) {
@@ -127,144 +371,175 @@ const processData = () => {
     { name: 'Total Revenue', data: last12Months.map((m) => m.revenue.toFixed(2)) },
     { name: 'VAT Collected', data: last12Months.map((m) => m.vat.toFixed(2)) },
   ]
-  monthlyChartOptions.value = {
-    ...monthlyChartOptions.value,
-    xaxis: { categories: last12Months.map((m) => m.monthYear.split(' ')[0]) },
+}
+
+// --- Z-REPORT LOGIC ---
+const generateZReport = async () => {
+  if (!profileStore.pharmacyId) return
+
+  // Reset
+  Object.assign(zReport, {
+    hasData: false,
+    grossSales: 0,
+    totalDiscounts: 0,
+    totalVat: 0,
+    cashSales: 0,
+    creditSales: 0,
+    khataCash: 0,
+    cashReturns: 0,
+    expectedCash: 0,
+  })
+
+  const start = new Date(selectedDate.value)
+  start.setHours(0, 0, 0, 0)
+  const startTimestamp = start.getTime()
+
+  const end = new Date(selectedDate.value)
+  end.setHours(23, 59, 59, 999)
+  const endTimestamp = end.getTime()
+
+  try {
+    // Fetch Data Locally
+    const [sales, payments, returns] = await Promise.all([
+      database
+        .get('sales')
+        .query(
+          Q.where('pharmacy_id', profileStore.pharmacyId),
+          Q.where('created_at', Q.gte(startTimestamp)),
+          Q.where('created_at', Q.lte(endTimestamp)),
+          Q.where('status', Q.notEq('void')),
+        )
+        .fetch(),
+      database
+        .get('transactions')
+        .query(
+          Q.where('pharmacy_id', profileStore.pharmacyId),
+          Q.where('type', 'payment'),
+          Q.where('created_at', Q.gte(startTimestamp)),
+          Q.where('created_at', Q.lte(endTimestamp)),
+        )
+        .fetch(),
+      database
+        .get('returns')
+        .query(
+          Q.where('pharmacy_id', profileStore.pharmacyId),
+          Q.where('created_at', Q.gte(startTimestamp)),
+          Q.where('created_at', Q.lte(endTimestamp)),
+        )
+        .fetch(),
+    ])
+
+    if (sales.length === 0 && payments.length === 0 && returns.length === 0) {
+      zReport.hasData = false
+      return
+    }
+
+    zReport.hasData = true
+
+    // Calculate Sales
+    sales.forEach((sale) => {
+      zReport.grossSales += sale.subtotal || sale.total // Assuming subtotal exists or total is gross
+      zReport.totalDiscounts += sale.discount || 0
+      zReport.totalVat += sale.vatAmount || 0
+
+      // Case-insensitive check for payment method
+      const method = (sale.paymentMethod || '').toLowerCase()
+
+      if (method === 'cash') {
+        zReport.cashSales += sale.total
+      } else if (method === 'credit') {
+        zReport.creditSales += sale.total
+      }
+    })
+
+    // Calculate Khata Payments (Cash only)
+    payments.forEach((payment) => {
+      // Assuming transaction amount is positive for payment
+      // And assuming all 'payment' type transactions are cash for now, or check method if available
+      // Transaction model might not have 'method' field explicitly, but let's assume cash if not specified
+      // Or check if payment.paymentMode exists
+      zReport.khataCash += payment.amount
+    })
+
+    // Calculate Returns (Cash refunds only)
+    returns.forEach((ret) => {
+      zReport.cashReturns += ret.totalRefund || 0
+    })
+
+    zReport.expectedCash = zReport.cashSales + zReport.khataCash - zReport.cashReturns
+  } catch (error) {
+    console.error('Error generating Z-Report', error)
   }
 }
 
+const printReport = () => {
+  window.print()
+}
+
 onMounted(async () => {
-  const pharmacyId = parseInt(profileStore.pharmacyId, 10)
-  if (!pharmacyId) return
+  if (!profileStore.pharmacyId) return
 
-  const { data: salesData } = await supabase.from('sales').select('*').eq('pharmacy_id', pharmacyId) // <-- FIX: Was 'user_id'
+  // Load Analytics Data
+  try {
+    const salesData = await database
+      .get('sales')
+      .query(Q.where('pharmacy_id', profileStore.pharmacyId), Q.where('status', Q.notEq('void')))
+      .fetch()
 
-  if (salesData) {
-    allSales = salesData.filter((sale) => sale.status !== 'void')
-    hasData.value = allSales.length > 0
-    if (hasData.value) {
-      processData()
+    if (salesData) {
+      allSales = salesData.map((s) => ({
+        ...s._raw,
+        created_at: s.createdAt,
+        vat_amount: s.vatAmount,
+        total: s.total,
+      }))
+      hasData.value = allSales.length > 0
+      if (hasData.value) {
+        processAnalytics()
+      }
     }
+  } catch (error) {
+    console.error('Error loading analytics data', error)
   }
+
+  // Generate initial Z-Report
+  generateZReport()
 })
 </script>
 
 <style scoped>
-/* Minor style update to the actions bar */
-.actions-bar {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-.actions-bar .button,
-.actions-bar .button-secondary {
-  width: auto;
-}
-/* All other styles remain unchanged */
-.stat-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
-}
-@media (min-width: 640px) {
-  .stat-grid {
-    grid-template-columns: repeat(3, 1fr);
+/* Print Styles */
+@media print {
+  body * {
+    visibility: hidden;
   }
-}
-.stat-card {
-  background-color: var(--color-surface);
-  padding: 1.5rem;
-  border-radius: 12px;
-}
-.stat-card h2 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-.stat-card .currency {
-  font-size: 1.5rem;
-  color: var(--color-light-slate);
-  margin-right: 0.25rem;
-}
-.stat-card p {
-  color: var(--color-text-light);
-  margin-top: 0.25rem;
-}
-.monthly-summary-card,
-.chart-card {
-  margin-bottom: 2rem;
-}
-.monthly-summary-card h2,
-.chart-card h2 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-}
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-thead {
-  background-color: var(--color-surface-mute);
-}
-thead th {
-  font-weight: 600;
-  color: var(--color-light-slate);
-}
-tbody tr:last-child td {
-  border-bottom: none;
-}
-tbody tr:hover {
-  background-color: var(--color-surface-mute);
-}
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-light);
-}
-@media (max-width: 768px) {
-  thead {
-    display: none;
+  #print-area,
+  #print-area * {
+    visibility: visible;
   }
-  tbody tr {
-    display: block;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    padding: 1rem;
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
   }
-  td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0.5rem;
-    border-bottom: 1px solid var(--color-surface-mute);
-    white-space: normal;
+  .glass-panel {
+    background: none !important;
+    border: none !important;
   }
-  tbody tr td:last-child {
-    border-bottom: none;
+  .text-white {
+    color: black !important;
   }
-  td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--color-text-light);
-    padding-right: 1rem;
+  .text-gray-300,
+  .text-gray-400 {
+    color: #333 !important;
   }
-}
-.back-link:hover {
-  color: var(--color-primary);
+  .bg-primary-900 {
+    background: #eee !important;
+    color: black !important;
+  }
 }
 </style>

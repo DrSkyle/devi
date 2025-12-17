@@ -36,10 +36,9 @@
 
 <script setup>
 import { ref } from 'vue'
-import { supabase } from '@/supabase'
 import { useRouter } from 'vue-router'
 import { useNotificationStore } from '@/stores/notification'
-import { clearLocalData } from '../db'
+import { database } from '@/database'
 
 const inviteCode = ref('')
 const isLoading = ref(false)
@@ -50,38 +49,47 @@ const notification = useNotificationStore()
 const joinPharmacy = async () => {
   isLoading.value = true
   errorMessage.value = ''
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    errorMessage.value = 'You are not logged in.'
-    isLoading.value = false
-    return
-  }
 
   try {
-    // This requires a database function to handle securely
-    const { data, error } = await supabase.rpc('join_pharmacy_with_invite', {
-      p_invite_code: inviteCode.value.trim().toUpperCase(),
-      p_user_id: user.id,
-      p_user_name: user.email, // Or a name collected from the user
-    })
+      // P2P Handshake
+      const { networkService } = await import('@/services/NetworkService')
+      
+      networkService.joinAsGuest(inviteCode.value.trim().toUpperCase(), async (credentialData) => {
+          isLoading.value = false
+          
+          if (!credentialData.success) {
+              errorMessage.value = "Invite rejected by host."
+              return
+          }
 
-    if (error) throw error
-    if (!data.success) throw new Error(data.message)
+          // Save Received Credentials
+          // Ideally we save this to a 'pharmacy_config' or similar
+          localStorage.setItem('lastPharmacyCode', credentialData.pharmacyCode)
+          localStorage.setItem('joinedPharmacyName', credentialData.pharmacyName)
+          localStorage.setItem('joinedPharmacyId', credentialData.pharmacyId)
 
-    notification.showNotification('Successfully joined pharmacy! Reloading...', 'success')
-    setTimeout(() => window.location.assign('/'), 1000)
+          notification.showNotification(`Joined ${credentialData.pharmacyName}!`, 'success')
+          
+          // Redirect to Login to enter Employee ID (which the Admin just verbally told them or sent)
+          setTimeout(() => router.push('/login'), 1000)
+      })
+
+      // Timeout if no host found
+      setTimeout(() => {
+          if (isLoading.value) {
+              isLoading.value = false
+              errorMessage.value = "No pharmacy hosting this code found nearby. Ask Admin to keep the Invite screen open."
+          }
+      }, 15000)
+
   } catch (error) {
     errorMessage.value = error.message
-  } finally {
     isLoading.value = false
   }
 }
 
 const logOutAndGoToSetup = async () => {
-  await supabase.auth.signOut()
-  await clearLocalData()
+  await database.unsafeResetDatabase()
   router.push('/signup')
 }
 </script>

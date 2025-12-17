@@ -3,6 +3,8 @@ import globals from 'globals'
 import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import skipFormatting from '@vue/eslint-config-prettier/skip-formatting'
+import babelParser from '@babel/eslint-parser'
+import tseslint from 'typescript-eslint'
 
 export default defineConfig([
   {
@@ -20,7 +22,29 @@ export default defineConfig([
     },
   },
 
+  {
+    files: ['**/*.js', '**/*.jsx'],
+    languageOptions: {
+      parser: babelParser,
+      parserOptions: {
+        requireConfigFile: false,
+        babelOptions: {
+          plugins: [['@babel/plugin-proposal-decorators', { legacy: true }]],
+        },
+      },
+    },
+  },
+
   js.configs.recommended,
+  ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/essential'],
+  {
+    files: ['*.vue', '**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+      },
+    },
+  },
   skipFormatting,
 ])

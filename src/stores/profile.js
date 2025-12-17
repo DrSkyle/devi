@@ -1,7 +1,6 @@
-// src/stores/profile.js
-
 import { defineStore } from 'pinia'
-import { reactive, toRefs } from 'vue'
+import { reactive, toRefs, computed, watch } from 'vue'
+import { localAuth } from '@/services/LocalAuthService'
 
 export const useProfileStore = defineStore('profile', () => {
   const state = reactive({
@@ -15,47 +14,82 @@ export const useProfileStore = defineStore('profile', () => {
     tole: '',
     role: null,
     pharmacyId: null,
+    pharmacyName: '',
     pharmacyCode: '',
+    phone: '',
+    latitude: null,
+    longitude: null,
   })
 
-  function setProfile(profileData) {
-    if (profileData) {
-      state.userId = profileData.user_id || ''
+  // Getters
+  const address = computed(() => {
+    const parts = [state.tole, state.city, state.district, state.province]
+    return parts.filter((p) => p).join(', ')
+  })
 
-      // --- THIS IS THE CORRECT AND ROBUST FIX ---
-      // It correctly handles all cases including an ID of 0, nulls, and strings.
-      const id = parseInt(profileData.pharmacy_id, 10)
-      state.pharmacyId = isNaN(id) ? null : id
-      // ------------------------------------------
-
-      state.name = profileData.name || ''
-      state.panNumber = profileData.pan_number || ''
-      state.vatNumber = profileData.vat_number || ''
-      state.province = profileData.province || ''
-      state.district = profileData.district || ''
-      state.city = profileData.city || ''
-      state.tole = profileData.tole || ''
-      state.role = profileData.role || 'cashier'
-      state.pharmacyCode = profileData.pharmacy_code || ''
+  // Sync with Local Auth
+  function syncWithAuth() {
+    const user = localAuth.getCurrentUser()
+    if (user) {
+        state.userId = user.id
+        state.name = user.name
+        state.role = user.role
+        state.pharmacyId = user.pharmacyId
+        // In a real app, we would query the 'pharmacies' table here for details
+        state.pharmacyName = 'My Local Pharmacy'
     }
   }
 
-  // Helper to reset the store, useful on logout
+  function setProfile(profileData) {
+    if (!profileData) return
+
+    // Normalize common shapes (legacy Supabase profile vs local profile)
+    const pharmacies = profileData.pharmacies || profileData.pharmacy || {}
+
+    state.userId = profileData.userId || profileData.id || state.userId
+    state.name = profileData.name || state.name
+    state.role = profileData.role ?? state.role
+
+    state.pharmacyId = profileData.pharmacyId || pharmacies.id || state.pharmacyId
+    state.pharmacyName = profileData.pharmacyName || pharmacies.name || state.pharmacyName
+    state.pharmacyCode = profileData.pharmacyCode || pharmacies.pharmacy_code || state.pharmacyCode
+
+    state.province = profileData.province || pharmacies.province || state.province
+    state.district = profileData.district || pharmacies.district || state.district
+    state.city = profileData.city || pharmacies.city || state.city
+    state.tole = profileData.tole || pharmacies.tole || state.tole
+    state.phone = profileData.phone || pharmacies.phone || state.phone
+  }
+
   function $reset() {
+    localAuth.logout()
     Object.assign(state, {
       userId: '',
       name: '',
-      panNumber: '',
-      vatNumber: '',
-      province: '',
-      district: '',
-      city: '',
-      tole: '',
       role: null,
-      pharmacyId: null,
-      pharmacyCode: '',
+      pharmacyId: null
     })
   }
 
-  return { ...toRefs(state), setProfile, $reset }
+  // Persistence
+  const savedState = localStorage.getItem('profile_store')
+  if (savedState) {
+    try {
+      const parsed = JSON.parse(savedState)
+      Object.assign(state, parsed)
+    } catch (e) {
+      console.error('Failed to load profile from storage', e)
+    }
+  }
+
+  // Watch and save
+  watch(
+    () => state,
+    (newVal) => {
+      localStorage.setItem('profile_store', JSON.stringify(newVal))
+    },
+    { deep: true },
+  )
+
+  return { ...toRefs(state), address, setProfile, syncWithAuth, $reset }
 })

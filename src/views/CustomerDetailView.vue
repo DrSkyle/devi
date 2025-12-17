@@ -1,446 +1,409 @@
 <template>
-  <div v-if="customer" class="customer-dashboard-container">
-    <header class="view-header">
-      <RouterLink to="/customers" class="back-link">&larr; Back to Customer Hub</RouterLink>
-      <h1 class="title">{{ customer.name }}</h1>
-      <p class="subtitle">{{ customer.phone }} &bull; {{ customer.address }}</p>
-    </header>
+  <div class="customer-detail-container p-4 max-w-7xl mx-auto relative min-h-screen">
+    <!-- Header & Actions -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <RouterLink
+          to="/customers"
+          class="no-underline text-gray-400 hover:text-white transition-colors mb-2 inline-block flex align-items-center gap-2"
+        >
+          <i class="pi pi-arrow-left text-sm"></i> Back to Customers
+        </RouterLink>
+        <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">
+          {{ customer?.name || 'Loading...' }}
+        </h1>
+        <p class="text-gray-400 text-sm flex align-items-center gap-3">
+          <span><i class="pi pi-phone text-xs mr-1"></i> {{ customer?.phone || 'No phone' }}</span>
+          <span v-if="customer?.address"
+            ><i class="pi pi-map-marker text-xs mr-1"></i> {{ customer.address }}</span
+          >
+        </p>
+      </div>
 
-    <div class="dashboard-grid">
-      <div class="left-panel">
-        <div class="card summary-card">
-          <div class="summary-item">
-            <span>Balance</span>
-            <strong :class="getBalanceClass(customer.balance)">
-              Rs. {{ (customer.balance || 0).toFixed(2) }}
-            </strong>
+      <div class="flex gap-3">
+        <Button
+          label="Record Payment"
+          icon="pi pi-wallet"
+          class="p-button-rounded bg-primary border-none hover:bg-primary-600 shadow-4 font-bold px-4"
+          @click="openPaymentModal"
+        />
+        <Button
+          icon="pi pi-pencil"
+          class="p-button-rounded p-button-text text-gray-400 hover:text-white"
+          v-tooltip.bottom="'Edit Customer'"
+          aria-label="Edit Customer"
+          @click="showEditModal = true"
+        />
+        <Button
+          icon="pi pi-trash"
+          class="p-button-rounded p-button-text text-red-400 hover:text-red-300"
+          v-tooltip.bottom="'Delete Customer'"
+          aria-label="Delete Customer"
+          @click="confirmDelete"
+        />
+      </div>
+    </div>
+
+    <div v-if="customer" class="grid">
+      <!-- Left Column: Stats & Info -->
+      <div class="col-12 lg:col-4">
+        <!-- Balance Card -->
+        <div class="glass-panel p-4 mb-4 text-center">
+          <div class="text-gray-400 text-sm uppercase font-bold mb-2">Current Balance</div>
+          <div
+            class="text-4xl font-mono font-bold mb-2"
+            :class="customer.balance > 0 ? 'text-orange-500' : 'text-primary'"
+          >
+            Rs. {{ customer.balance.toFixed(2) }}
           </div>
-          <div class="summary-item">
-            <span>Saved Prescriptions</span>
-            <strong>{{ prescriptions.length }}</strong>
+          <div class="text-xs text-gray-500">
+            {{ customer.balance > 0 ? 'Payment Due' : 'All Cleared' }}
           </div>
         </div>
-        <div class="card actions-card">
-          <h3>Actions</h3>
-          <button @click="isEditModalOpen = true" class="button-secondary">Edit Details</button>
-          <button @click="recordPayment" class="button-secondary">Record Payment Received</button>
-          <button @click="addCredit" class="button-secondary">Add Credit / Deposit</button>
-          <RouterLink :to="`/add-prescription?customerId=${customer._id}`" class="button">
-            + Add New Prescription
-          </RouterLink>
+
+        <!-- Allergies Card -->
+        <div class="glass-panel p-4 mb-4">
+          <div class="flex align-items-center gap-2 mb-3">
+            <i class="pi pi-exclamation-circle text-red-400"></i>
+            <span class="font-bold text-white">Allergies</span>
+          </div>
+          <div
+            v-if="customer.allergies && customer.allergies.length > 0"
+            class="flex flex-wrap gap-2"
+          >
+            <Tag
+              v-for="allergy in customer.allergies"
+              :key="allergy"
+              :value="allergy"
+              severity="danger"
+            />
+          </div>
+          <p v-else class="text-gray-500 text-sm m-0">No known allergies.</p>
         </div>
       </div>
 
-      <div class="right-panel">
-        <div class="card history-card">
-          <div class="tabs">
-            <button @click="activeTab = 'ledger'" :class="{ active: activeTab === 'ledger' }">
-              Ledger
+      <!-- Right Column: Tabs (Ledger / Prescriptions) -->
+      <div class="col-12 lg:col-8">
+        <div class="glass-panel p-0 overflow-hidden min-h-full flex flex-column">
+          <!-- Custom Tabs -->
+          <div class="flex border-bottom-1 border-white-alpha-10">
+            <button
+              class="flex-1 p-3 text-center font-bold cursor-pointer transition-colors border-none bg-transparent outline-none"
+              :class="
+                activeTab === 'ledger'
+                  ? 'text-primary border-bottom-2 border-primary bg-white-alpha-5'
+                  : 'text-gray-400 hover:text-white hover:bg-white-alpha-5'
+              "
+              @click="activeTab = 'ledger'"
+            >
+              <i class="pi pi-list mr-2"></i> Ledger
             </button>
             <button
+              class="flex-1 p-3 text-center font-bold cursor-pointer transition-colors border-none bg-transparent outline-none"
+              :class="
+                activeTab === 'prescriptions'
+                  ? 'text-primary border-bottom-2 border-primary bg-white-alpha-5'
+                  : 'text-gray-400 hover:text-white hover:bg-white-alpha-5'
+              "
               @click="activeTab = 'prescriptions'"
-              :class="{ active: activeTab === 'prescriptions' }"
             >
-              Prescriptions
+              <i class="pi pi-file mr-2"></i> Prescriptions
             </button>
           </div>
-          <div class="tab-content">
-            <div v-if="activeTab === 'ledger'">
-              <CustomerLedger :sales="creditHistory.sales" :payments="creditHistory.payments" />
-            </div>
-            <div v-if="activeTab === 'prescriptions'">
-              <div v-if="prescriptions.length > 0" class="prescription-list">
-                <div v-for="rx in prescriptions" :key="rx._id" class="prescription-item">
-                  <div class="rx-info">
-                    <strong>Dr. {{ rx.doctor_name }}</strong>
-                    <span>Saved on: {{ formatDate(rx.created_at) }}</span>
-                    <ul>
-                      <li v-for="item in rx.items" :key="item.name">
-                        {{ decryptData(item.name) }} (Qty: {{ item.quantity }})
-                      </li>
-                    </ul>
-                  </div>
-                  <div class="rx-actions">
-                    <button @click="dispense(rx)" class="button">Dispense</button>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="empty-state">
-                <p>No prescriptions found for this patient.</p>
-              </div>
-            </div>
+
+          <!-- Tab Content -->
+          <div class="p-4 flex-grow-1">
+            <CustomerLedger v-if="activeTab === 'ledger'" :customerId="customer.id" />
+            <PrescriptionsList v-else :customerId="customer.id" />
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div v-if="isEditModalOpen" class="modal-overlay" @click.self="isEditModalOpen = false">
-    <div class="modal-content card">
-      <h2>Edit Customer Details</h2>
-      <form @submit.prevent="updateCustomer">
-        <div class="form-group">
-          <label>Name</label><input type="text" v-model="editableCustomer.name" required />
-        </div>
-        <div class="form-group">
-          <label>Phone</label><input type="text" v-model="editableCustomer.phone" />
-        </div>
-        <div class="form-group">
-          <label>Address</label><input type="text" v-model="editableCustomer.address" />
-        </div>
-        <div class="form-group">
-          <label>Allergies (comma-separated)</label>
-          <input type="text" v-model="editableCustomer.allergies" />
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="button-secondary" @click="isEditModalOpen = false">
-            Cancel
-          </button>
-          <button type="submit">Save Changes</button>
-        </div>
-      </form>
+    <!-- Loading State -->
+    <div v-else class="flex align-items-center justify-content-center min-h-screen">
+      <i class="pi pi-spin pi-spinner text-4xl text-primary"></i>
     </div>
+
+    <!-- Payment Modal -->
+    <Dialog
+      v-model:visible="showPaymentModal"
+      header="Record Payment"
+      modal
+      class="glass-dialog"
+      :style="{ width: '400px' }"
+      :draggable="false"
+    >
+      <div class="field">
+        <label class="text-gray-300 text-sm mb-2 block">Amount (Rs.)</label>
+        <InputNumber
+          v-model="paymentAmount"
+          mode="currency"
+          currency="NPR"
+          locale="en-NP"
+          class="w-full glass-input"
+          :min="0"
+          autofocus
+        />
+      </div>
+      <div class="field">
+        <label class="text-gray-300 text-sm mb-2 block">Remarks (Optional)</label>
+        <InputText
+          v-model="paymentRemarks"
+          class="w-full glass-input"
+          placeholder="e.g. Bank Transfer"
+        />
+      </div>
+      <template #footer>
+        <Button
+          label="Cancel"
+          icon="pi pi-times"
+          text
+          @click="showPaymentModal = false"
+          class="text-gray-400 hover:text-white"
+        />
+        <Button
+          label="Confirm Payment"
+          icon="pi pi-check"
+          @click="processPayment"
+          :loading="isProcessing"
+        />
+      </template>
+    </Dialog>
+
+    <!-- Edit Customer Modal -->
+    <Dialog
+      v-model:visible="showEditModal"
+      header="Edit Customer"
+      modal
+      class="glass-dialog"
+      :style="{ width: '450px' }"
+      :draggable="false"
+    >
+      <div class="flex flex-column gap-3">
+        <div class="field">
+          <label class="text-gray-300 text-sm mb-2 block">Customer Name</label>
+          <InputText v-model="editForm.name" class="w-full glass-input" />
+        </div>
+        <div class="field">
+          <label class="text-gray-300 text-sm mb-2 block">Phone Number</label>
+          <InputText v-model="editForm.phone" class="w-full glass-input" />
+        </div>
+        <div class="field">
+          <label class="text-gray-300 text-sm mb-2 block">Address</label>
+          <InputText v-model="editForm.address" class="w-full glass-input" />
+        </div>
+        <div class="field">
+          <label class="text-gray-300 text-sm mb-2 block">Allergies</label>
+          <InputText
+            v-model="editForm.allergies"
+            class="w-full glass-input"
+            placeholder="Comma separated"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <Button
+          label="Cancel"
+          icon="pi pi-times"
+          text
+          @click="showEditModal = false"
+          class="text-gray-400 hover:text-white"
+        />
+        <Button
+          label="Save Changes"
+          icon="pi pi-check"
+          @click="updateCustomer"
+          :loading="isProcessing"
+        />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onActivated, reactive } from 'vue'
-import { supabase } from '@/supabase'
+import { ref, onMounted, reactive } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { database } from '@/database'
 import { useNotificationStore } from '@/stores/notification'
-import { usePromptStore } from '@/stores/prompt'
-import { decryptData, encryptData } from '@/utils/cipher'
-import CustomerLedger from '@/components/CustomerLedger.vue'
+import { encryptData, decryptData } from '@/utils/cipher'
 import { useProfileStore } from '@/stores/profile'
+import CustomerLedger from '@/components/CustomerLedger.vue'
+import PrescriptionsList from '@/components/PrescriptionsList.vue'
+import { useConfirm } from 'primevue/useconfirm'
+
+// PrimeVue Components
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import InputNumber from 'primevue/inputnumber'
+import Dialog from 'primevue/dialog'
+import Tag from 'primevue/tag'
 
 const route = useRoute()
 const router = useRouter()
 const notification = useNotificationStore()
-const prompt = usePromptStore()
-const profile = useProfileStore()
+const profileStore = useProfileStore()
+const confirm = useConfirm()
 
 const customer = ref(null)
-const creditHistory = reactive({ sales: [], payments: [] })
-const prescriptions = ref([])
-const isEditModalOpen = ref(false)
-const editableCustomer = reactive({ name: '', phone: '', address: '' })
 const activeTab = ref('ledger')
+const showPaymentModal = ref(false)
+const showEditModal = ref(false)
+const isProcessing = ref(false)
+const paymentAmount = ref(0)
+const paymentRemarks = ref('')
 
-const fetchData = async () => {
-  const customerId = Number(route.params.id)
+const editForm = reactive({
+  name: '',
+  phone: '',
+  address: '',
+  allergies: '',
+})
+
+const fetchCustomerDetails = async () => {
+  const customerId = route.params.id
+  try {
+    const data = await database.get('customers').find(customerId)
+
+    customer.value = {
+      ...data._raw,
+      id: data.id,
+      name: decryptData(data.name),
+      phone: decryptData(data.phone),
+      address: decryptData(data.address),
+      allergies: data.allergies ? data.allergies.split(',').filter(Boolean) : [], // Schema has string, not array
+      balance: data.balance || 0,
+      pharmacyId: data.pharmacyId,
+    }
+
+    // Populate edit form
+    editForm.name = customer.value.name
+    editForm.phone = customer.value.phone
+    editForm.address = customer.value.address
+    editForm.allergies = customer.value.allergies.join(', ')
+  } catch (error) {
+    console.error('Customer not found', error)
+    notification.showNotification('Customer not found', 'error')
+    router.push('/customers')
+  }
+}
+
+onMounted(fetchCustomerDetails)
+
+const openPaymentModal = () => {
+  if (customer.value && customer.value.balance > 0) {
+    paymentAmount.value = customer.value.balance
+  } else {
+    paymentAmount.value = 0
+  }
+  showPaymentModal.value = true
+}
+
+const processPayment = async () => {
+  if (paymentAmount.value <= 0) {
+    notification.showNotification('Enter a valid amount', 'error')
+    return
+  }
+
+  isProcessing.value = true
+  let userId = null
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user || !customerId) {
-    router.push('/customers')
+  if (user) {
+    userId = user.id
+  } else if (profileStore.userId) {
+    userId = profileStore.userId
+  }
+
+  if (!userId) {
+    notification.showNotification('User not logged in', 'error')
+    isProcessing.value = false
     return
   }
 
-  const { data: fetchedCustomer } = await supabase
-    .from('customers')
-    .select('*')
-    .eq('_id', customerId)
-    .single()
+  try {
+    await database.write(async () => {
+      // 1. Create Transaction Record
+      await database.get('transactions').create((txn) => {
+        txn.customerId = customer.value.id
+        txn.amount = paymentAmount.value
+        txn.type = 'payment'
+        txn.remarks = paymentRemarks.value || 'Balance Payment'
+        txn.pharmacyId = customer.value.pharmacyId
+        txn.userId = userId
+      })
 
-  if (!fetchedCustomer) {
-    notification.showNotification('Customer not found.', 'error')
-    router.push('/customers')
-    return
+      // 2. Update Customer Balance
+      const customerRecord = await database.get('customers').find(customer.value.id)
+      await customerRecord.update((rec) => {
+        rec.balance -= paymentAmount.value
+      })
+    })
+
+    notification.showNotification(`Payment of Rs. ${paymentAmount.value} recorded!`)
+    showPaymentModal.value = false
+    paymentAmount.value = 0
+    paymentRemarks.value = ''
+    await fetchCustomerDetails() // Refresh data
+  } catch (e) {
+    console.error(e)
+    notification.showNotification('Failed to record payment', 'error')
+  } finally {
+    isProcessing.value = false
   }
-
-  customer.value = {
-    _id: fetchedCustomer._id,
-    name: decryptData(fetchedCustomer.name),
-    phone: decryptData(fetchedCustomer.phone),
-    address: decryptData(fetchedCustomer.address),
-    balance: fetchedCustomer.balance || 0,
-    allergies: (fetchedCustomer.allergies || []).join(', '),
-  }
-
-  Object.assign(editableCustomer, customer.value)
-
-  const { data: sales } = await supabase
-    .from('sales')
-    .select('*')
-    .eq('customer_id', customerId)
-    .eq('pharmacy_id', profile.pharmacyId)
-  const { data: payments } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('customer_id', customerId)
-    .eq('pharmacy_id', profile.pharmacyId)
-  const { data: rx } = await supabase
-    .from('prescriptions')
-    .select('*')
-    .eq('customer_id', customerId)
-    .eq('pharmacy_id', profile.pharmacyId)
-    .order('created_at', { ascending: false })
-
-  creditHistory.sales = sales || []
-  creditHistory.payments = payments || []
-  prescriptions.value = rx || []
 }
-
-onActivated(fetchData)
-
-const getBalanceClass = (balance) => {
-  if (balance > 0) return 'has-balance-debit'
-  if (balance < 0) return 'has-balance-credit'
-  return ''
-}
-
-const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-GB')
 
 const updateCustomer = async () => {
-  // Format allergies back into an array
-  const allergiesArray = editableCustomer.allergies
-    ? editableCustomer.allergies
-        .split(',')
-        .map((a) => a.trim())
-        .filter(Boolean)
-    : []
-
-  const { error } = await supabase
-    .from('customers')
-    .update({
-      name: encryptData(editableCustomer.name),
-      phone: encryptData(editableCustomer.phone),
-      address: encryptData(editableCustomer.address),
-      allergies: allergiesArray, // SAVE THE ARRAY
-    })
-    .eq('_id', customer.value._id)
-
-  if (error) {
-    notification.showNotification('Failed to update details.', 'error')
-  } else {
-    notification.showNotification('Customer details updated.')
-    isEditModalOpen.value = false
-    await fetchData()
-  }
-}
-
-const recordPayment = async () => {
+  isProcessing.value = true
   try {
-    const amountPaid = await prompt.show({
-      title: 'Record Payment Received',
-      message: `Current outstanding balance is Rs. ${customer.value.balance.toFixed(2)}. How much did the customer pay?`,
-      inputType: 'number',
-      initialValue: customer.value.balance > 0 ? customer.value.balance.toFixed(2) : '',
+    await database.write(async () => {
+      const customerRecord = await database.get('customers').find(customer.value.id)
+      await customerRecord.update((rec) => {
+        rec.name = encryptData(editForm.name)
+        rec.phone = encryptData(editForm.phone)
+        rec.address = encryptData(editForm.address)
+        rec.allergies = editForm.allergies
+      })
     })
 
-    const amount = parseFloat(amountPaid)
-    if (isNaN(amount) || amount <= 0) return
-
-    const newBalance = customer.value.balance - amount
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { error } = await supabase.rpc('record_customer_payment', {
-      p_customer_id: customer.value._id,
-      p_amount: amount,
-      p_new_balance: newBalance,
-      p_user_id: user.id,
-      p_pharmacy_id: profile.pharmacyId,
-      p_type: 'debit_payment',
-    })
-    if (error) throw error
-
-    notification.showNotification('Payment recorded!')
-    await fetchData()
-  } catch (error) {
-    if (error.message !== 'cancelled' && error !== 'cancelled')
-      notification.showNotification('Failed to record payment.', 'error')
+    notification.showNotification('Customer details updated')
+    showEditModal.value = false
+    await fetchCustomerDetails()
+  } catch (e) {
+    console.error(e)
+    notification.showNotification('Failed to update customer', 'error')
+  } finally {
+    isProcessing.value = false
   }
 }
 
-const addCredit = async () => {
-  try {
-    const amountCredit = await prompt.show({
-      title: 'Add Credit / Deposit',
-      message: "How much credit or change is being added to this customer's account?",
-      inputType: 'number',
-    })
-    const amount = parseFloat(amountCredit)
-    if (isNaN(amount) || amount <= 0) return
-
-    const newBalance = customer.value.balance - amount
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { error } = await supabase.rpc('record_customer_payment', {
-      p_customer_id: customer.value._id,
-      p_amount: amount,
-      p_new_balance: newBalance,
-      p_user_id: user.id,
-      p_pharmacy_id: profile.pharmacyId,
-      p_type: 'credit_deposit',
-    })
-    if (error) throw error
-
-    notification.showNotification('Credit added to account!')
-    await fetchData()
-  } catch (error) {
-    if (error.message !== 'cancelled' && error !== 'cancelled')
-      notification.showNotification('Failed to add credit.', 'error')
-  }
-}
-
-const dispense = (rx) => {
-  router.push({ name: 'record-sale', query: { fromRx: rx._id } })
+const confirmDelete = () => {
+  confirm.require({
+    message: 'Are you sure you want to delete this customer? This cannot be undone.',
+    header: 'Delete Confirmation',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await database.write(async () => {
+          const customerRecord = await database.get('customers').find(customer.value.id)
+          await customerRecord.markAsDeleted()
+        })
+        notification.showNotification('Customer deleted')
+        router.push('/customers')
+      } catch (error) {
+        console.error(error)
+        notification.showNotification('Failed to delete customer', 'error')
+      }
+    },
+  })
 }
 </script>
+
 <style scoped>
-.back-link {
-  color: var(--color-text-light);
-  text-decoration: none;
-  font-weight: 500;
-  display: block;
-  margin-bottom: 0.5rem;
-}
-.view-header .subtitle {
-  margin-top: 0;
-}
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-  margin-top: 2rem;
-}
-@media (min-width: 1024px) {
-  .dashboard-grid {
-    grid-template-columns: 320px 1fr;
-    align-items: start;
-  }
-}
-
-.left-panel .card {
-  margin-bottom: 2rem;
-}
-.summary-card .summary-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
-.summary-card .summary-item:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-.summary-card .summary-item:first-child {
-  padding-top: 0;
-}
-.summary-card span {
-  color: var(--color-text-light);
-}
-.summary-card strong {
-  font-size: 1.5rem;
-  color: var(--color-soft-cream);
-}
-.summary-card strong.has-balance-debit {
-  color: var(--color-saffron-orange);
-}
-.summary-card strong.has-balance-credit {
-  color: var(--color-peacock-teal);
-}
-
-.actions-card h3 {
-  font-size: 1.1rem;
-  margin-bottom: 1rem;
-}
-.actions-card .button,
-.actions-card .button-secondary {
-  width: 100%;
-  margin-bottom: 1rem;
-}
-.actions-card .button:last-child,
-.actions-card .button-secondary:last-child {
-  margin-bottom: 0;
-}
-
-.tabs {
-  display: flex;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 1.5rem;
-}
-.tabs button {
-  background: none;
-  border: none;
-  color: var(--color-text-light);
-  padding: 0.75rem 1.5rem;
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-  font-size: 1rem;
-  font-weight: 600;
-}
-.tabs button.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
-}
-
-.prescription-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.prescription-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  background-color: var(--color-surface-mute);
-  padding: 1rem;
-  border-radius: 8px;
-}
-.rx-info {
-  display: flex;
-  flex-direction: column;
-}
-.rx-info span {
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-  margin-top: 0.25rem;
-}
-.rx-info ul {
-  list-style: disc;
-  padding-left: 1.5rem;
-  margin-top: 0.5rem;
-}
-.rx-actions .button {
-  width: auto;
-  font-size: 0.9rem;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: var(--color-text-light);
-}
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-.modal-content {
-  width: 100%;
-  max-width: 500px;
-}
-.modal-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
-}
+/* Scoped styles are minimal as we use utility classes and global glass-panel */
 </style>

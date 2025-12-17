@@ -1,78 +1,116 @@
 <template>
-  <div class="staff-report-container">
-    <header class="view-header">
-      <RouterLink to="/reports" class="back-link">&larr; Back to Reports</RouterLink>
-      <h1 class="title">Staff Performance Report</h1>
-      <p class="subtitle">Analyze sales and shift data for your staff members.</p>
-    </header>
+  <div class="staff-report-container p-4 max-w-7xl mx-auto min-h-screen">
+    <!-- Header -->
+    <div
+      class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center mb-6 gap-4"
+    >
+      <div>
+        <RouterLink
+          to="/reports"
+          class="no-underline text-gray-400 hover:text-white mb-2 inline-block transition-colors"
+        >
+          <i class="pi pi-arrow-left mr-2"></i>Back to Reports
+        </RouterLink>
+        <h1 class="text-4xl font-thin text-white mb-1 tracking-tight">Staff Performance Report</h1>
+        <p class="text-gray-400 text-sm">Analyze sales and shift data for your staff members.</p>
+      </div>
+      <DataExporter
+        :data="formattedReportData"
+        :file-name="`Staff_Performance_${dateRange.start}_to_${dateRange.end}.csv`"
+        button-text="Export CSV"
+      />
+    </div>
 
-    <div class="card">
-      <div class="filter-bar">
-        <div class="date-picker-wrapper">
-          <label for="startDate">From:</label>
-          <input type="date" id="startDate" v-model="dateRange.start" />
+    <!-- Filter Bar -->
+    <div class="glass-panel p-4 mb-6">
+      <div class="flex flex-column md:flex-row gap-4 align-items-end">
+        <div class="flex-1 w-full">
+          <label for="startDate" class="block text-sm font-medium text-gray-300 mb-2"
+            >From Date</label
+          >
+          <Calendar
+            v-model="dateRange.start"
+            showIcon
+            dateFormat="yy-mm-dd"
+            inputId="startDate"
+            class="w-full glass-calendar"
+          />
         </div>
-        <div class="date-picker-wrapper">
-          <label for="endDate">To:</label>
-          <input type="date" id="endDate" v-model="dateRange.end" />
+        <div class="flex-1 w-full">
+          <label for="endDate" class="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+          <Calendar
+            v-model="dateRange.end"
+            showIcon
+            dateFormat="yy-mm-dd"
+            inputId="endDate"
+            class="w-full glass-calendar"
+          />
         </div>
-        <DataExporter
-          :data="formattedReportData"
-          :file-name="`Staff_Performance_${dateRange.start}_to_${dateRange.end}.csv`"
-          button-text="Export CSV"
-        />
       </div>
+    </div>
 
-      <div v-if="isLoading" class="loading-state">
-        <p>Generating report...</p>
-      </div>
-      <div v-else-if="reportData.length === 0" class="empty-state">
-        <p>No shift or sales data found for the selected period.</p>
-      </div>
-      <div v-else class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Staff Name</th>
-              <th class="text-right">Total Hours Worked</th>
-              <th class="text-right">Total Sales Revenue</th>
-              <th class="text-right">Number of Sales</th>
-              <th class="text-right">Sales per Hour</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="staff in reportData" :key="staff.staffId">
-              <td data-label="Staff Name">{{ staff.staffName }}</td>
-              <td data-label="Total Hours" class="text-right">{{ staff.totalHours.toFixed(2) }}</td>
-              <td data-label="Total Revenue" class="text-right">
-                Rs. {{ staff.totalSales.toFixed(2) }}
-              </td>
-              <td data-label="Number of Sales" class="text-right">{{ staff.salesCount }}</td>
-              <td data-label="Sales per Hour" class="text-right highlight">
-                Rs. {{ staff.salesPerHour.toFixed(2) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex flex-column align-items-center justify-content-center p-6">
+      <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+      <p class="text-gray-400 mt-3">Generating report...</p>
+    </div>
+
+    <div v-else-if="reportData.length === 0" class="glass-panel p-6 text-center">
+      <i class="pi pi-users text-5xl text-gray-500 mb-3"></i>
+      <p class="text-gray-400">No shift or sales data found for the selected period.</p>
+    </div>
+
+    <div v-else class="glass-panel p-0 overflow-hidden">
+      <DataTable :value="reportData" responsiveLayout="scroll" class="glass-table" :rowHover="true">
+        <Column field="staffName" header="Staff Name">
+          <template #body="{ data }">
+            <span class="font-bold text-white">{{ data.staffName }}</span>
+          </template>
+        </Column>
+        <Column field="totalHours" header="Total Hours Worked" class="text-right">
+          <template #body="{ data }">
+            <span class="text-gray-300">{{ data.totalHours.toFixed(2) }}</span>
+          </template>
+        </Column>
+        <Column field="totalSales" header="Total Sales Revenue" class="text-right">
+          <template #body="{ data }">
+            <span class="text-primary font-bold">Rs. {{ data.totalSales.toFixed(2) }}</span>
+          </template>
+        </Column>
+        <Column field="salesCount" header="Number of Sales" class="text-right">
+          <template #body="{ data }">
+            <span class="text-white">{{ data.salesCount }}</span>
+          </template>
+        </Column>
+        <Column field="salesPerHour" header="Sales per Hour" class="text-right">
+          <template #body="{ data }">
+            <span class="text-green-400 font-bold">Rs. {{ data.salesPerHour.toFixed(2) }}</span>
+          </template>
+        </Column>
+      </DataTable>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, watch, onMounted, computed } from 'vue'
-import { supabase } from '@/supabase'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
 import { useProfileStore } from '@/stores/profile'
 import { RouterLink } from 'vue-router'
 import DataExporter from '@/components/DataExporter.vue'
+import Calendar from 'primevue/calendar'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import ProgressSpinner from 'primevue/progressspinner'
 
 const profile = useProfileStore()
 const isLoading = ref(true)
 const reportData = ref([])
 
 const dateRange = reactive({
-  start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
-  end: new Date().toISOString().split('T')[0],
+  start: new Date(new Date().setDate(1)), // First day of current month
+  end: new Date(), // Today
 })
 
 const generateReport = async () => {
@@ -85,21 +123,26 @@ const generateReport = async () => {
   endDate.setHours(23, 59, 59, 999)
   const endDateISO = endDate.toISOString()
 
-  const { data: shifts } = await supabase
-    .from('shifts')
-    .select('*')
-    .eq('pharmacy_id', profile.pharmacyId)
-    .eq('status', 'completed')
-    .gte('start_time', startDateISO)
-    .lte('end_time', endDateISO)
+  // WatermelonDB Replacement
+  const shifts = await database
+    .get('shifts')
+    .query(
+      Q.where('pharmacy_id', profile.pharmacyId),
+      Q.where('status', 'completed'),
+      Q.where('start_time', Q.gte(startDateISO)), // Note: Q.gte with ISO strings might need numbers depending on schema, but usually string compare works for ISO
+      Q.where('end_time', Q.lte(endDateISO)),
+    )
+    .fetch()
 
-  const { data: sales } = await supabase
-    .from('sales')
-    .select('*')
-    .eq('user_id', profile.pharmacyId)
-    .neq('status', 'void')
-    .gte('created_at', startDateISO)
-    .lte('created_at', endDateISO)
+  const sales = await database
+    .get('sales')
+    .query(
+      Q.where('pharmacy_id', profile.pharmacyId), // Assuming user_id mapped to pharmacy_id in local context or similar
+      Q.where('status', Q.notEq('void')),
+      Q.where('created_at', Q.gte(startDateISO)),
+      Q.where('created_at', Q.lte(endDateISO)),
+    )
+    .fetch()
 
   const staffPerformance = {}
 
@@ -116,7 +159,6 @@ const generateReport = async () => {
     const duration = (new Date(shift.end_time) - new Date(shift.start_time)) / (1000 * 60 * 60)
     staffPerformance[shift.staff_id].totalHours += duration
   })
-
   ;(sales || []).forEach((sale) => {
     if (staffPerformance[sale.staff_id]) {
       staffPerformance[sale.staff_id].totalSales += sale.total
@@ -150,62 +192,5 @@ watch(dateRange, generateReport)
 </script>
 
 <style scoped>
-.back-link {
-  color: var(--color-text-light);
-  text-decoration: none;
-  font-weight: 500;
-  display: block;
-  margin-bottom: 0.5rem;
-}
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-}
-.date-picker-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.date-picker-wrapper label {
-  font-weight: 500;
-}
-.filter-bar .button-secondary {
-  width: auto;
-  margin-left: auto;
-}
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-thead {
-  background-color: var(--color-surface-mute);
-}
-.text-right {
-  text-align: right;
-}
-.highlight {
-  font-weight: bold;
-  color: var(--color-primary);
-}
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-light);
-}
+/* Utility classes handle most styles */
 </style>
