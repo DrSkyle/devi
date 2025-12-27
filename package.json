@@ -18,6 +18,7 @@
     "android:build": "tauri android build"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.2.0",
     "@babel/plugin-proposal-decorators": "^7.28.0",
     "@formkit/drag-and-drop": "^0.5.3",
     "@formkit/icons": "^1.6.9",
@@ -60,6 +61,7 @@
     "yjs": "^13.6.27"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.2.0",
     "@babel/core": "^7.28.5",
     "@babel/eslint-parser": "^7.28.5",
     "@eslint/js": "^9.31.0",
