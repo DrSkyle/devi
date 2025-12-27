@@ -27,6 +27,7 @@
     "@nozbe/watermelondb": "^0.28.0",
     "@primeuix/themes": "^1.2.5",
     "@primevue/themes": "^4.4.1",
+    "@supabase/supabase-js": "^2.47.10",
     "@tanstack/vue-query": "^5.91.2",
     "@tanstack/vue-virtual": "^3.13.12",
     "@types/leaflet": "^1.9.21",
