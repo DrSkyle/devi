@@ -1,0 +1,52 @@
+// src/stores/notification.js
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+
+export const useNotificationStore = defineStore('notification', () => {
+  const message = ref('')
+  const type = ref('') // 'success' or 'error'
+  const isVisible = ref(false)
+  let timeoutId = null
+
+  function showNotification(newMessage, newType = 'success') {
+    // If a notification is already showing, clear it first
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+
+    message.value = newMessage
+    type.value = newType
+    isVisible.value = true
+
+    // Automatically hide after 4 seconds
+    timeoutId = setTimeout(() => {
+      isVisible.value = false
+    }, 4000)
+  }
+
+  // --- Broadcast Messages Logic ---
+  const unreadCount = ref(0)
+
+  async function checkUnreadMessages(pharmacyId) {
+    if (!pharmacyId) return
+
+    // Local-First: We don't check cloud notifications for now.
+    // Future: Check 'notifications' collection in WatermelonDB.
+    unreadCount.value = 0
+  }
+
+  function markAsRead() {
+    unreadCount.value = 0
+    localStorage.setItem('lastNotificationReadTime', new Date().toISOString())
+  }
+
+  return {
+    message,
+    type,
+    isVisible,
+    showNotification,
+    unreadCount,
+    checkUnreadMessages,
+    markAsRead,
+  }
+})
