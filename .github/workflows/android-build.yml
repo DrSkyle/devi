@@ -43,7 +43,7 @@ jobs:
         run: npm run tauri -- android init
 
       - name: Build APK
-        run: npm run tauri -- android build --apk
+        run: npm run tauri -- android build --apk true
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
