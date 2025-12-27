@@ -176,6 +176,7 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { database } from '@/database'
 import { useNotificationStore } from '@/stores/notification'
 import { encryptData, decryptData } from '@/utils/cipher'
+import { localAuth } from '@/services/LocalAuthService'
 
 // PrimeVue Components
 import Button from 'primevue/button'
@@ -253,9 +254,7 @@ const updateItem = async () => {
   isLoading.value = true
 
   let userId = null
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = localAuth.getCurrentUser()
 
   if (user) {
     userId = user.id

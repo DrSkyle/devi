@@ -58,6 +58,8 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useProfileStore } from '@/stores/profile'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
 import { useNotificationStore } from '@/stores/notification'
 import { useStaffStore } from '@/stores/staff'
 import Button from 'primevue/button'
@@ -77,20 +79,22 @@ const isAdmin = computed(() => staffStore.activeUserRole === 'admin')
 
 const fetchNotifications = async () => {
   isLoading.value = true
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('pharmacy_id', profileStore.pharmacyId)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
+  try {
+    const records = await database.get('notifications')
+       .query(
+          Q.where('pharmacy_id', profileStore.pharmacyId),
+          Q.where('is_active', true)
+          // Q.sortBy('created_at', Q.desc) // WatermelonDB sort syntax might differ slightly or need plugin
+       ).fetch()
+    
+    // Manual sort if needed (WatermelonDB sort is limited without LokiJS adapter sometimes)
+    notifications.value = records.sort((a, b) => b.createdAt - a.createdAt).map(n => n._raw)
 
-  if (error) {
-    console.error('Error fetching notifications:', error)
-  } else {
-    notifications.value = data
     // Mark as read when viewing
-    const notificationStore = useNotificationStore() // Ensure we have the store instance
+    const notificationStore = useNotificationStore()
     notificationStore.markAsRead()
+  } catch (error) {
+    console.error('Error fetching notifications:', error)
   }
   isLoading.value = false
 }
@@ -99,21 +103,16 @@ const postNotification = async () => {
   if (!newMessage.value.trim()) return
 
   isPosting.value = true
-  const { error } = await supabase.from('notifications').insert({
-    pharmacy_id: profileStore.pharmacyId,
-    message: newMessage.value,
-    created_by: staffStore.activeUserId, // or auth user id
-  })
+  try {
+     await database.write(async () => {
+        await database.get('notifications').create(note => {
+           note.pharmacyId = profileStore.pharmacyId
+           note.message = newMessage.value
+           note.createdBy = staffStore.activeUserId
+           note.isActive = true
+        })
+     })
 
-  if (error) {
-    console.error('Error posting notification:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to post message.',
-      life: 3000,
-    })
-  } else {
     toast.add({
       severity: 'success',
       summary: 'Posted',
@@ -122,6 +121,14 @@ const postNotification = async () => {
     })
     newMessage.value = ''
     await fetchNotifications()
+  } catch (error) {
+    console.error('Error posting notification:', error)
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to post message.',
+      life: 3000,
+    })
   }
   isPosting.value = false
 }

@@ -65,25 +65,15 @@ const logs = ref([])
 // const profileStore = useProfileStore() // Removed unused store
 
 const fetchLogs = async () => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
-
-  const { data: fetchedLogs } = await supabase
-    .from('audit_logs')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('timestamp', { ascending: false })
-  const { data: allProfiles } = await supabase.from('profiles').select('user_id, name')
-
-  if (fetchedLogs) {
-    const userMap = new Map((allProfiles || []).map((p) => [p.user_id, p.name]))
-    logs.value = fetchedLogs.map((log) => ({
-      ...log,
-      userName: userMap.get(log.user_id) || log.details?.email || 'Unknown User',
-    }))
-  }
+  // REFACTORED: 'audit_logs' table is not yet in local schema.
+  // For now, we return empty or placeholder.
+  logs.value = []
+  
+  // Future: Add 'audit_logs' to src/database/schema.js and query it here.
+  /*
+  const localLogs = await database.get('audit_logs').query().fetch()
+  logs.value = localLogs
+  */
 }
 
 onActivated(fetchLogs)

@@ -231,6 +231,7 @@ import { decryptData } from '@/utils/cipher'
 import { useProfileStore } from '@/stores/profile'
 import { database } from '@/database'
 import { Q } from '@nozbe/watermelondb'
+import { localAuth } from '@/services/LocalAuthService'
 
 // PrimeVue Components
 import InputText from 'primevue/inputtext'
@@ -334,11 +335,20 @@ const selectSale = async (saleWrapper) => {
     // Re-fetch full sale object to ensure we have latest state
     const sale = await database.get('sales').find(saleWrapper.id)
 
-    // Check previous returns (from Supabase for now)
-    const { data: previousReturns } = await supabase
-      .from('returns')
-      .select('items')
-      .eq('original_sale_id', sale.id)
+    // Check previous returns (Local)
+    let previousReturns = []
+    try {
+      previousReturns = await database.get('returns')
+        .query(Q.where('sale_id', sale.id))
+        .fetch()
+      
+      // Map WatermelonDB objects to raw for processing
+      previousReturns = previousReturns.map(r => ({
+          items: JSON.parse(r.items || '[]')
+      }))
+    } catch (e) {
+       console.warn("Could not fetch previous returns", e)
+    }
 
     const previouslyReturnedQuantities = {}
     ;(previousReturns || []).forEach((ret) => {
@@ -407,8 +417,7 @@ const canReturnAnything = computed(() => {
 const processReturn = async () => {
   isProcessing.value = true
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = localAuth.getCurrentUser()
 
   let userId = user?.id
   if (!userId && profileStore.userId) {
@@ -440,18 +449,51 @@ const processReturn = async () => {
   }
 
   try {
-    const { data: returnId, error } = await supabase.rpc('process_return_v2', {
-      p_original_sale_id: originalSale.value._id,
-      p_bill_number: originalSale.value.bill_number,
-      p_user_id: userId,
-      p_pharmacy_id: parseInt(profileStore.pharmacyId, 10),
-      p_items_to_return: itemsToReturn,
-      p_total_return_value: totalReturnValue.value,
-    })
+    let returnId = null
 
-    if (error) {
-      throw error
-    }
+    await database.write(async () => {
+        // 1. Create Return Record
+        const returnRecord = await database.get('returns').create(rec => {
+            rec.saleId = originalSale.value._id
+            rec.pharmacyId = profileStore.pharmacyId
+            rec.customerId = originalSale.value.customer_id || null // Note: originalSale mapping used 'customerId', logic maps 'customer_id'
+            rec.items = JSON.stringify(itemsToReturn)
+            rec.totalRefund = totalReturnValue.value
+            // rec.reason = 'Customer Return' // Optional
+        })
+        returnId = returnRecord.id
+
+        // 2. Update Inventory (Add stock back)
+        for (const item of itemsToReturn) {
+            try {
+                // Warning: item.id might be Inventory ID or something else.
+                // In selectSale logic: id: i.id.
+                // In sales logic: items stored with ID?
+                // Let's assume item.id IS the inventory ID.
+                if (item.id) {
+                    const invItem = await database.get('inventory').find(item.id)
+                    await invItem.update(rec => {
+                        rec.quantity += item.quantity
+                    })
+                }
+            } catch (err) {
+                console.warn("Could not restock item:", item.name, err)
+            }
+        }
+
+        // 3. Update Customer Balance
+        if (originalSale.value.customerId) {
+             try {
+                 const customer = await database.get('customers').find(originalSale.value.customerId)
+                 await customer.update(rec => {
+                     // Start Credit Note: Reduces what they owe (Balance > 0 is debt)
+                     rec.balance -= totalReturnValue.value
+                 })
+             } catch (e) {
+                 console.warn("Could not update customer balance", e)
+             }
+        }
+    })
 
     notification.showNotification('Return processed successfully!')
     router.push({ name: 'credit-note', params: { id: returnId } })

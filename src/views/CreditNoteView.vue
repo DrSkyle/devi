@@ -97,7 +97,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile.js'
+import { database } from '@/database'
 import { decryptData } from '@/utils/cipher'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
@@ -110,12 +112,41 @@ const returnId = route.params.id // UUID is a string
 const returnData = ref(null)
 
 onMounted(async () => {
-  const { data, error } = await supabase.from('returns').select('*').eq('id', returnId).single()
-  if (error) {
+  try {
+    const data = await database.get('returns').find(returnId)
+    // Map WatermelonDB model to plain object expected by template
+    returnData.value = {
+      ...data._raw,
+      id: data.id,
+      bill_number: data.billNumber || data.saleId, // Check schema for bill_number in 'returns'? Schema has sale_id.
+      // Wait, schema for 'returns' (line 210) has: sale_id, items, total_refund.
+      // It DOES NOT have 'bill_number'.
+      // But the template uses `returnData.bill_number`.
+      // The Supabase RPC likely joined it or stored it.
+      // I should fetch the sale to get the bill number.
+    }
+
+    // Fetch Sale for Bill Number
+    if (data.saleId) {
+       try {
+         const sale = await database.get('sales').find(data.saleId)
+         returnData.value.bill_number = sale.billNumber
+       } catch {
+         returnData.value.bill_number = 'Unknown'
+       }
+    }
+
+    // Parse items
+    try {
+       returnData.value.items = JSON.parse(data.items)
+    } catch {
+       returnData.value.items = []
+    }
+
+  } catch (error) {
     console.error('CreditNoteView Error:', error)
     return
   }
-  returnData.value = data
 })
 
 const printReceipt = () => window.print()

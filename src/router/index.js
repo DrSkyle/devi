@@ -1,61 +1,28 @@
-import { database } from '@/database'
-import { Q } from '@nozbe/watermelondb'
-import { useProfileStore } from '@/stores/profile'
-import { useStaffStore } from '@/stores/staff'
+import { localAuth } from '@/services/LocalAuthService'
 
 const getUserAndProfile = async () => {
   const profileStore = useProfileStore()
   const staffStore = useStaffStore()
 
-  // 1. Check for Staff Session (Offline/Local)
-  let isStaffSession = sessionStorage.getItem('isStaffSession') === 'true'
-  let staffId = sessionStorage.getItem('activeStaffId')
+  // 1. Check in-memory session from LocalAuthService
+  const currentUser = localAuth.getCurrentUser()
 
-  if (!isStaffSession) {
-      staffId = localStorage.getItem('persistentStaffId')
-      if (staffId) isStaffSession = true
-  }
-
-  if (isStaffSession && staffId) {
-    if (staffId) {
-      let staffMember = null
-      try {
-        staffMember = await database.get('staff').find(staffId)
-      } catch {
-        const results = await database.get('staff').query(Q.where('id', staffId)).fetch()
-        if (results.length > 0) staffMember = results[0]
-      }
-
-      const profiles = await database.get('profiles').query().fetch()
-      const adminProfile = profiles.length > 0 ? profiles[0] : null
-
-      if (staffMember && adminProfile) {
-        profileStore.setProfile(adminProfile)
-        staffStore.setActiveUser(staffMember)
-        return { user: { id: staffMember.id }, profile: adminProfile, isStaff: true }
-      }
+  if (currentUser) {
+    // Session is active
+    return {
+      user: currentUser,
+      profile: {
+        role: currentUser.role,
+        name: currentUser.name,
+        pharmacyId: currentUser.pharmacyId
+      },
+      isStaff: true // In this new model, everyone is "staff" (even admin)
     }
   }
 
-  // 2. Check for Admin/Owner Session (Local database only)
-  // We assume if there is a profile in the local DB, we might be "logged in"
-  // pending a real local auth check. For now, we strictly check for a local session token
-  // or just default to check if a profile exists and we have an 'adminAuthenticated' flag.
-
-  const isAdminAuthenticated = localStorage.getItem('adminAuthenticated') === 'true'
-
-  if (isAdminAuthenticated) {
-    try {
-      const profiles = await database.get('profiles').query().fetch()
-      if (profiles.length > 0) {
-         const localProfile = profiles[0]
-         profileStore.setProfile(localProfile)
-         return { user: { id: localProfile.userId }, profile: localProfile, isStaff: false }
-      }
-    } catch (e) {
-      console.error("Error fetching local profile", e)
-    }
-  }
+  // 2. If no memory session, try to re-hydrate from PIN (Auto-login not secure for PIN)
+  // But maybe we want to check if ANYONE exists to direct to Onboarding vs Login?
+  // We can just return null. The guards will handle redirection.
 
   return { user: null, profile: null, isStaff: false }
 }
@@ -318,48 +285,41 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  const { user, profile, isStaff } = await getUserAndProfile()
+  // 1. Check if system is initialized (has admin)
+  const hasAdmin = await localAuth.hasAdmin()
+
+  // 2. Initial Setup Flow
+  if (!hasAdmin) {
+    if (to.name === 'signup') return next()
+    return next({ name: 'signup' }) // Redirect everything to Setup
+  }
+
+  // 3. If setup is done, blocking Signup page
+  if (hasAdmin && to.name === 'signup') {
+    return next({ name: 'login' })
+  }
+
+  // 4. Auth Check
+  const { user, profile } = await getUserAndProfile()
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
 
-  // Determine active role
-  let activeRole = 'admin' // Default for owner
-  if (isStaff) {
-    const staffRole = sessionStorage.getItem('activeStaffRole')
-    if (staffRole) activeRole = staffRole
-  } else if (profile && profile.role) {
-    activeRole = profile.role
+  if (requiresAuth && !user) {
+    return next({ name: 'login' })
   }
 
-  const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding')
-
-  if (!hasSeenOnboarding && to.name !== 'onboarding') {
-    next({ name: 'onboarding' })
-  } else if (requiresAuth && !user && !isStaff) {
-    next({ name: 'login' })
-  } else {
-    // Legacy Checks
-    // ...
-    // Note: I will preserve the existing checks but nested correctly outside the first IF
-    // Actually, I can just insert the onboarding check as the TOP priority
-    // But I must be careful not to create infinite loop if 'onboarding' is blocked by something else (it isn't).
-
-    // Existing logic continues...
-    if (isStaff && to.name === 'profile-setup') {
-       // ... existing
-       next({ name: 'home' })
-    } else if (user && !profile && to.name !== 'profile-setup' && !isStaff) {
-       next({ name: 'profile-setup' })
-    } else if (user && profile && to.name === 'profile-setup') {
-       next({ name: 'home' })
-    } else {
-       // Role Check
-       if (to.meta.roles && !to.meta.roles.includes(activeRole)) {
-         next({ name: 'home' })
-       } else {
-         next()
-       }
-    }
+  // 5. Already Logged In
+  if (user && to.name === 'login') {
+    return next({ name: 'home' })
   }
+
+  // 6. Role Checks
+  let activeRole = user?.role || 'cashier'
+  if (to.meta.roles && !to.meta.roles.includes(activeRole)) {
+     // Unauthorized
+     return next({ name: 'home' })
+  }
+
+  next()
 })
 
 export default router

@@ -247,6 +247,7 @@ import { encryptData, decryptData } from '@/utils/cipher'
 import { useProfileStore } from '@/stores/profile'
 import { database } from '@/database'
 import { Q } from '@nozbe/watermelondb'
+import { localAuth } from '@/services/LocalAuthService'
 
 // PrimeVue Components
 import Button from 'primevue/button'
@@ -391,9 +392,7 @@ const openNewCustomerModal = () => {
 }
 
 const addNewCustomer = async () => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = localAuth.getCurrentUser() // REFACTORED: Local Auth
   // if (!user || !profileStore.pharmacyId) return // Allow offline creation without user check if needed, but user_id is optional in schema
 
   try {
@@ -467,9 +466,7 @@ const savePrescription = async () => {
   if (!selectedCustomer.value || !prescriptionData.value.doctorName) return
 
   isSaving.value = true
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = localAuth.getCurrentUser() // REFACTORED: Local Auth
 
   const itemsToSave = prescriptionData.value.items.map((item) => ({
     name: encryptData(item.name),

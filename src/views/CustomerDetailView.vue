@@ -232,7 +232,9 @@ import { encryptData, decryptData } from '@/utils/cipher'
 import { useProfileStore } from '@/stores/profile'
 import CustomerLedger from '@/components/CustomerLedger.vue'
 import PrescriptionsList from '@/components/PrescriptionsList.vue'
+import PrescriptionsList from '@/components/PrescriptionsList.vue'
 import { useConfirm } from 'primevue/useconfirm'
+import { localAuth } from '@/services/LocalAuthService'
 
 // PrimeVue Components
 import Button from 'primevue/button'
@@ -309,9 +311,8 @@ const processPayment = async () => {
 
   isProcessing.value = true
   let userId = null
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* REFACTORED: Local Auth */
+  const user = localAuth.getCurrentUser()
 
   if (user) {
     userId = user.id

@@ -201,6 +201,7 @@ import { useNotificationStore } from '@/stores/notification'
 import { encryptData, decryptData } from '@/utils/cipher'
 import { useProfileStore } from '@/stores/profile'
 import { IMaskDirective } from 'vue-imask'
+import { localAuth } from '@/services/LocalAuthService'
 
 const vImask = IMaskDirective
 
@@ -327,9 +328,8 @@ const addCustomer = async () => {
 
   isProcessing.value = true
   let userId = null
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* REFACTORED: Local Auth */
+  const user = localAuth.getCurrentUser()
 
   if (user) {
     userId = user.id

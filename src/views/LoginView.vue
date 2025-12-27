@@ -193,23 +193,22 @@ const findPharmacy = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const code = pharmacyCodeInput.value.toLowerCase().trim()
-    // Local-first: We cannot verify the pharmacy code online without Supabase/Cloud Relay found.
-    // For now, if we are in "Establish Clean Baseline", we simulate success if the code format looks okay,
-    // OR we require the user to be pre-provisioned via a JSON import (later task).
-    // For now: Fail with specific message.
+    // In Local-First, we check if we have ANY pharmacy stored locally.
+    const pharmacies = await database.get('pharmacies').query().fetch()
 
-    // DEV BYPASS:
-    if (code === 'dev' || code === 'demo') {
-       pharmacy.id = 'demo_pharmacy'
-       pharmacy.name = 'Demo Pharmacy'
-       pharmacy.code = code
-       step.value = 2
-       localStorage.setItem('lastPharmacyCode', code)
-       return
+    if (pharmacies.length > 0) {
+      // If we have a local pharmacy, we just use it.
+      // We ignore the input for now unless we support multi-tenancy locally.
+      const localP = pharmacies[0]
+      pharmacy.id = localP.id
+      pharmacy.name = localP.name
+      pharmacy.code = localP.pharmacy_code || 'LOCAL'
+      step.value = 2
+      return
     }
 
-    throw new Error('Cloud lookup disabled. Use "demo" to test or import config manually.')
+    // If no local pharmacy, we can't "find" one online.
+    throw new Error('No pharmacy found on this device. Please Create Pharmacy.')
 
   } catch (err) {
     errorMessage.value = err.message

@@ -55,6 +55,7 @@ import { database } from '@/database'
 import { usePromptStore } from '@/stores/prompt.js'
 import { useStaffStore } from '@/stores/staff'
 import Button from 'primevue/button'
+import { localAuth } from '@/services/LocalAuthService'
 
 const prompt = usePromptStore()
 const staffStore = useStaffStore()
@@ -177,7 +178,7 @@ const logOut = async () => {
       message: 'Are you sure you want to log out?',
     })
 
-    await supabase.auth.signOut()
+    await localAuth.logout()
     await database.unsafeResetDatabase()
     window.location.href = '/login'
   } catch (error) {

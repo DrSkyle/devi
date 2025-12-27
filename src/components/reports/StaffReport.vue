@@ -135,15 +135,22 @@ const generateReport = async () => {
     // If dataService uses Supabase, yes.
     // But I want to remove dataService.
 
-    const { supabase } = await import('@/supabase')
-
-    const { data: shifts } = await supabase
-      .from('shifts')
-      .select('*')
-      .eq('pharmacy_id', profile.pharmacyId)
-      .eq('status', 'completed')
-      .gte('start_time', startDate.toISOString())
-      .lte('end_time', endDate.toISOString())
+    // REFACTORED: Fetch shifts from local WatermelonDB
+    // Note: Assuming 'shifts' collection is now populated locally or we rely on sales only.
+    // If 'shifts' table exists in schema (it does), we fetch from it.
+    
+    let shifts = []
+    try {
+      shifts = await database.get('shifts')
+        .query(
+          Q.where('pharmacy_id', profile.pharmacyId),
+          Q.where('status', 'completed'),
+          Q.where('start_time', Q.gte(startTimestamp)),
+          Q.where('end_time', Q.lte(endTimestamp))
+        ).fetch()
+    } catch (err) {
+      console.warn("Could not fetch shifts locally:", err)
+    }
 
     const sales = await database
       .get('sales')

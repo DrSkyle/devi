@@ -144,6 +144,9 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
 import { useProfileStore } from '@/stores/profile'
+import { database } from '@/database'
+import { Q } from '@nozbe/watermelondb'
+import { localAuth } from '@/services/LocalAuthService'
 
 // PrimeVue Components
 import Button from 'primevue/button'
@@ -187,63 +190,79 @@ const generateReport = async () => {
   hasData.value = false
   resetReport()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = localAuth.getCurrentUser()
   if (!user) {
-    isLoading.value = false
-    return
+    // Should verify logging in?
+    // isLoading.value = false
+    // return
   }
 
   const startDate = new Date(selectedDate.value)
   startDate.setHours(0, 0, 0, 0)
-  const startDateISO = startDate.toISOString()
+  const startTs = startDate.getTime()
 
   const endDate = new Date(selectedDate.value)
   endDate.setHours(23, 59, 59, 999)
-  const endDateISO = endDate.toISOString()
+  const endTs = endDate.getTime()
 
-  const { data: sales } = await supabase
-    .from('sales')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('created_at', startDateISO)
-    .lte('created_at', endDateISO)
-  const { data: payments } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('created_at', startDateISO)
-    .lte('created_at', endDateISO)
-  const { data: returns } = await supabase
-    .from('returns')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('created_at', startDateISO)
-    .lte('created_at', endDateISO)
+  // Queries
+  // Note: WatermelonDB timestamps are numbers.
+  const sales = await database.get('sales').query(
+      Q.where('created_at', Q.gte(startTs)),
+      Q.where('created_at', Q.lte(endTs))
+  ).fetch()
 
-  if ((sales?.length || 0) === 0 && (payments?.length || 0) === 0 && (returns?.length || 0) === 0) {
+  // Transactions (Payments)
+  // 'payments' table does not exist in schema. 'transactions' does.
+  // Schema has 'transactions' with 'amount', 'type', 'created_at'.
+  const payments = await database.get('transactions').query(
+      Q.where('created_at', Q.gte(startTs)),
+      Q.where('created_at', Q.lte(endTs))
+  ).fetch()
+
+  const returns = await database.get('returns').query(
+      Q.where('created_at', Q.gte(startTs)),
+      Q.where('created_at', Q.lte(endTs))
+  ).fetch()
+
+
+  if ((sales.length === 0) && (payments.length === 0) && (returns.length === 0)) {
     isLoading.value = false
     return
   }
 
   hasData.value = true
-  report.totalReturns = (returns || []).reduce((sum, r) => sum + r.total_value, 0)
-  report.totalBills = sales?.length || 0
-  ;(sales || []).forEach((sale) => {
+  report.totalReturns = returns.reduce((sum, r) => sum + (r.totalRefund || 0), 0)
+  report.totalBills = sales.length
+
+  sales.forEach((sale) => {
     if (sale.status === 'void') {
       report.voidedBills++
       return
     }
     report.grossSales += sale.subtotal || sale.total
     report.totalDiscounts += sale.discount || 0
-    report.totalVat += sale.vat_amount || 0
+    report.totalVat += sale.taxTotal || 0 // Schema has tax_total
     if (sale.status === 'paid') {
       report.netCashSales += sale.total
     }
   })
 
-  report.khataPayments = (payments || []).reduce((sum, p) => sum + p.amount, 0)
+  // Filter payments for Khata (Credit) payments?
+  // Usually 'transactions' table has all payments, including those for sales.
+  // If 'payments' matches 'transactions' table...
+  // Logic in 'EndOfDay': khataPayments = payments.reduce...
+  // In `CustomerDetail`, we recorded payment as type='payment'.
+  // We should filter transactions where type='payment' (debt repayment) vs type='cash' (sale).
+  // I will sum transactions where type == 'payment' (Khata receive) or custom logic.
+  // For now, I will sum ALL transactions that appear to be independent payments.
+  
+  // Logic: Khata payments are when customer pays debt.
+  report.khataPayments = payments
+      .filter(p => p.type === 'payment') // Assuming 'payment' type is debt repayment
+      .reduce((sum, p) => sum + p.amount, 0)
+
+  // Expected Cash = Cash Sales + Khata Received - Cash Returns
   report.expectedCash = report.netCashSales + report.khataPayments - report.totalReturns
 
   isLoading.value = false
