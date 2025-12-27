@@ -58,6 +58,7 @@
     "vue3-apexcharts": "^1.8.0",
     "xstate": "^5.24.0",
     "y-webrtc": "^10.3.0",
+    "y-indexeddb": "^9.0.2",
     "yjs": "^13.6.27"
   },
   "devDependencies": {
