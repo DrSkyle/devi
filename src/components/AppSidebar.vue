@@ -89,8 +89,8 @@ import { useRouter, useRoute, RouterLink } from 'vue-router'
 
 import { useConfirm } from 'primevue/useconfirm'
 
-import { useStaffStore } from '@/stores/staff'
-import { useProfileStore } from '@/stores/profile'
+import { useStaffStore } from '@/features/staff/store'
+import { useProfileStore } from '@/features/profile/store'
 
 const router = useRouter()
 const route = useRoute()

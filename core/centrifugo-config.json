@@ -1,0 +1,12 @@
+{
+  "v3_use_offset": true,
+  "namespaces": [
+    {
+      "name": "dda_approvals",
+      "presence": true,
+      "history_size": 100,
+      "history_ttl": "24h",
+      "join_leave": true
+    }
+  ]
+}

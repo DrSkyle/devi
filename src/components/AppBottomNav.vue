@@ -1,9 +1,7 @@
 <template>
-  <div
-    class="app-bottom-nav fixed bottom-0 left-0 w-full z-5 border-top-1 border-white-alpha-10"
-  >
+  <div class="app-bottom-nav fixed bottom-0 left-0 w-full z-5 border-top-1 border-white-alpha-10">
     <div class="glass-effect absolute inset-0"></div>
-    
+
     <div class="relative flex justify-content-around align-items-stretch w-full h-full pb-safe">
       <div
         v-for="item in navItems"
@@ -14,21 +12,21 @@
         v-ripple
       >
         <div class="icon-container relative">
-          <i 
+          <i
             :class="[
-              item.icon, 
+              item.icon,
               'text-xl transition-all duration-300',
-              isActive(item.to) ? '-translate-y-1' : ''
+              isActive(item.to) ? '-translate-y-1' : '',
             ]"
           ></i>
-          <span 
+          <span
             v-if="isActive(item.to)"
             class="active-indicator absolute -bottom-2 left-0 w-full border-round-xl bg-primary"
             style="height: 3px; box-shadow: 0 0 8px var(--primary-color)"
           ></span>
         </div>
-        
-        <span 
+
+        <span
           class="text-xs font-medium transition-all duration-200"
           :class="isActive(item.to) ? 'text-white' : 'text-gray-400'"
         >
@@ -42,7 +40,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useStaffStore } from '@/stores/staff'
+import { useStaffStore } from '@/features/staff/store'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
 
 // Haptics (Vibration)
@@ -78,7 +76,12 @@ const navItems = computed(() => {
       to: '/customers',
       roles: ['admin', 'pharmacist', 'cashier'],
     },
-    { label: 'More', icon: 'pi pi-compass', to: '/more', roles: ['admin', 'pharmacist', 'cashier'] },
+    {
+      label: 'More',
+      icon: 'pi pi-compass',
+      to: '/more',
+      roles: ['admin', 'pharmacist', 'cashier'],
+    },
   ]
 
   return allItems.filter((item) => !item.roles || item.roles.includes(role))

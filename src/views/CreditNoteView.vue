@@ -97,7 +97,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useProfileStore } from '@/stores/profile.js'
+import { useProfileStore } from '@/features/profile/store'
 import { decryptData } from '@/utils/cipher'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'

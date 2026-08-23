@@ -1,35 +1,55 @@
-# devi
+# DEVI Pharmacy
 
-This template should help get you started developing with Vue 3 in Vite.
+> The Sovereign, Offline-First, Real-Time Pharmacy Management Platform
 
-## Recommended IDE Setup
+## What is DEVI?
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+DEVI is a next-generation pharmacy management system built for high-compliance, low-connectivity environments. It combines the reliability of an offline-first thick client with the power of a modern, event-driven backend.
 
-## Customize configuration
+## Features
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+- **Offline-First POS:** Process sales, manage inventory, and handle prescriptions even without internet.
+- **Real-Time Compliance:** Automated DDA (Drug & Drug Administration) workflows with pharmacist approvals.
+- **Financial Integrity:** Every transaction is recorded in a double-entry ledger (TigerBeetle).
+- **Predictive Inventory:** AI-driven forecasts to prevent stockouts.
+- **Edge AI:** Parse supplier invoices directly in the browser.
+- **Multi-Platform:** Web, Desktop (Tauri), and Mobile (Capacitor).
 
-## Project Setup
+## Quick Start
 
-```sh
-npm install
+### Prerequisites
+
+- Docker & Docker Compose
+- Node.js 18+
+- Go 1.21+
+
+### 1. Start the Infrastructure
+
+```bash
+docker-compose -f core/docker-compose.yml up -d
 ```
 
-### Compile and Hot-Reload for Development
+### 2. Run the Backend
 
-```sh
+```bash
+cd core
+cp .env.example .env
+make run
+```
+
+### 3. Run the Frontend
+
+```bash
+npm install
 npm run dev
 ```
 
-### Compile and Minify for Production
+## Documentation
 
-```sh
-npm run build
-```
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [API Specification](docs/API_SPEC.md)
+- [Contributing](docs/CONTRIBUTING.md)
 
-### Lint with [ESLint](https://eslint.org/)
+## License
 
-```sh
-npm run lint
-```
+MIT

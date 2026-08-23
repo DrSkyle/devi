@@ -28,16 +28,23 @@ export const useProfileStore = defineStore('profile', () => {
   })
 
   // Sync with Local Auth
+  async function loadFromLocalDatabase() {
+     // For V1, this is simple local auth sync
+     // In future, this might query WatermelonDB 'pharmacies' table
+     const user = localAuth.getCurrentUser()
+     if (user) {
+         state.userId = user.id
+         state.name = user.name
+         state.role = user.role
+         state.pharmacyId = user.pharmacyId
+         state.pharmacyName = 'My Local Pharmacy'
+         return true
+     }
+     return false
+  }
+
   function syncWithAuth() {
-    const user = localAuth.getCurrentUser()
-    if (user) {
-        state.userId = user.id
-        state.name = user.name
-        state.role = user.role
-        state.pharmacyId = user.pharmacyId
-        // In a real app, we would query the 'pharmacies' table here for details
-        state.pharmacyName = 'My Local Pharmacy'
-    }
+    loadFromLocalDatabase()
   }
 
   function setProfile(profileData) {
@@ -91,5 +98,5 @@ export const useProfileStore = defineStore('profile', () => {
     { deep: true },
   )
 
-  return { ...toRefs(state), address, setProfile, syncWithAuth, $reset }
+  return { ...toRefs(state), address, setProfile, syncWithAuth, loadFromLocalDatabase, $reset }
 })

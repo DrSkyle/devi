@@ -210,7 +210,7 @@
 <script setup>
 import { reactive, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useProfileStore } from '@/stores/profile.js'
+import { useProfileStore } from '@/features/profile/store'
 import { useNotificationStore } from '@/stores/notification.js'
 import { locations } from '@/utils/nepal-locations.js'
 import { database } from '@/database'
@@ -247,22 +247,31 @@ const cities = computed(() =>
   profile.province && profile.district ? locations[profile.province][profile.district] : [],
 )
 
-watch(() => profile.province, () => {
+watch(
+  () => profile.province,
+  () => {
     profile.district = ''
     profile.city = ''
-})
-watch(() => profile.district, () => {
+  },
+)
+watch(
+  () => profile.district,
+  () => {
     profile.city = ''
-})
+  },
+)
 
-watch(() => profile.panNumber, (newVal) => {
+watch(
+  () => profile.panNumber,
+  (newVal) => {
     if (newVal) {
       const sanitized = newVal.replace(/[^0-9]/g, '').slice(0, 9)
       if (sanitized !== newVal) {
         profile.panNumber = sanitized
       }
     }
-})
+  },
+)
 
 const calibrateLocation = () => {
   if (!navigator.geolocation) {
@@ -295,7 +304,8 @@ const saveProfileAndContinue = async () => {
   }
 
   confirm.require({
-    message: 'Are you sure you want to initialize this device as the Admin Console for this pharmacy?',
+    message:
+      'Are you sure you want to initialize this device as the Admin Console for this pharmacy?',
     header: 'Confirm Setup',
     icon: 'pi pi-exclamation-triangle',
     styleClass: 'w-11 md:w-25rem',
@@ -303,78 +313,77 @@ const saveProfileAndContinue = async () => {
       isLoading.value = true
       try {
         const formattedCode = profile.pharmacyCode.toLowerCase().trim()
-        
+
         // Generate IDs Locally
         const pharmacyId = 1 // Use 1 for local primary pharmacy, or generate random if multi-tenancy (but this is local)
-                             // Actually, WatermelonDB IDs are strings usually. Let's use numeric 1 for simplicity if schema allows, 
-                             // but schemas are strict. Let's check schema later. Standard is string.
-        
+        // Actually, WatermelonDB IDs are strings usually. Let's use numeric 1 for simplicity if schema allows,
+        // but schemas are strict. Let's check schema later. Standard is string.
+
         // Better: Use timestamps or UUIDs if schema expects string
         // Assuming schema expects string/number. Let's use a numeric ID for Pharmacy as it's often used in simple refs
         // Or better, let's just make a new Pharmacy record.
-        
+
         const pharmacyUUID = uuidv4()
         const userUUID = uuidv4()
 
         await database.write(async () => {
-             // 1. Create Pharmacy
-             const pharmaciesCollection = database.get('pharmacies')
-             const newPharmacy = await pharmaciesCollection.create(pharmacy => {
-                 pharmacy.name = profile.name
-                 pharmacy.pharmacy_code = formattedCode
-                 pharmacy.pan_number = profile.panNumber
-                 pharmacy.vat_number = profile.vatNumber
-                 pharmacy.province = profile.province
-                 pharmacy.district = profile.district
-                 pharmacy.city = profile.city
-                 pharmacy.tole = profile.tole
-                 pharmacy.latitude = location.latitude
-                 pharmacy.longitude = location.longitude
-                 // pharmacy.created_at = Date.now() // if schema has it
-             })
-             
-             // 2. Create Admin Profile
-             const profilesCollection = database.get('profiles')
-             const newProfile = await profilesCollection.create(rec => {
-                 rec.id = userUUID // Use explicit ID if possible, or let it generate
-                 rec.role = 'admin'
-                 rec.pharmacy_id = newPharmacy.id
-                 rec.full_name = 'Admin' // Default name, or ask user?
-                 rec.phone_number = '0000000000'
-                 // link to pharmacy
-             })
-             
-             // 3. Create Staff Entry for Admin (for login)
-             const staffCollection = database.get('staff')
-             await staffCollection.create(staff => {
-                 staff.pharmacy_id = newPharmacy.id
-                 staff.name = 'ADMIN'
-                 staff.role = 'admin'
-                 staff.pin_hash = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92' // '123456' hash? Or just '1234'
-                 // Actually, let's set a default PIN: 1234. 
-                 // SHA256('1234') = 03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4
-                 // Use a known hash for 1234 for now to let them login.
-             })
-             
-             // Set Store
-             profileStore.setProfile({
-                 id: newProfile.id,
-                 role: 'admin',
-                 name: 'Admin',
-                 pharmacy_id: newPharmacy.id
-             })
+          // 1. Create Pharmacy
+          const pharmaciesCollection = database.get('pharmacies')
+          const newPharmacy = await pharmaciesCollection.create((pharmacy) => {
+            pharmacy.name = profile.name
+            pharmacy.pharmacy_code = formattedCode
+            pharmacy.pan_number = profile.panNumber
+            pharmacy.vat_number = profile.vatNumber
+            pharmacy.province = profile.province
+            pharmacy.district = profile.district
+            pharmacy.city = profile.city
+            pharmacy.tole = profile.tole
+            pharmacy.latitude = location.latitude
+            pharmacy.longitude = location.longitude
+            // pharmacy.created_at = Date.now() // if schema has it
+          })
+
+          // 2. Create Admin Profile
+          const profilesCollection = database.get('profiles')
+          const newProfile = await profilesCollection.create((rec) => {
+            rec.id = userUUID // Use explicit ID if possible, or let it generate
+            rec.role = 'admin'
+            rec.pharmacy_id = newPharmacy.id
+            rec.full_name = 'Admin' // Default name, or ask user?
+            rec.phone_number = '0000000000'
+            // link to pharmacy
+          })
+
+          // 3. Create Staff Entry for Admin (for login)
+          const staffCollection = database.get('staff')
+          await staffCollection.create((staff) => {
+            staff.pharmacy_id = newPharmacy.id
+            staff.name = 'ADMIN'
+            staff.role = 'admin'
+            staff.pin_hash = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92' // '123456' hash? Or just '1234'
+            // Actually, let's set a default PIN: 1234.
+            // SHA256('1234') = 03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4
+            // Use a known hash for 1234 for now to let them login.
+          })
+
+          // Set Store
+          profileStore.setProfile({
+            id: newProfile.id,
+            role: 'admin',
+            name: 'Admin',
+            pharmacy_id: newPharmacy.id,
+          })
         })
 
         notification.showNotification('Pharmacy initialized locally. You are the Admin.', 'success')
         router.push('/')
-        
       } catch (error) {
         console.error(error)
         notification.showNotification('Setup failed: ' + error.message, 'error')
       } finally {
         isLoading.value = false
       }
-    }
+    },
   })
 }
 </script>

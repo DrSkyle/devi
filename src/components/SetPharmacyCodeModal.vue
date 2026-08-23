@@ -41,7 +41,7 @@
 <script setup>
 import { ref } from 'vue'
 import { database } from '@/database'
-import { useProfileStore } from '@/stores/profile'
+import { useProfileStore } from '@/features/profile/store'
 import { useToast } from 'primevue/usetoast'
 import Dialog from 'primevue/dialog'
 import Button from 'primevue/button'

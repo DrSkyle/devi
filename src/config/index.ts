@@ -16,9 +16,8 @@ export const config = {
   mesh: {
     signalingUrls: [
       'ws://localhost:4444', // Local fallback for offline dev/LAN
-      'wss://signaling.yjs.dev', // Public Demo Server 1
-      'wss://y-webrtc-signaling-eu.herokuapp.com', // Public Demo Server 2
-      'wss://y-webrtc-signaling-us.herokuapp.com' // Public Demo Server 3
+      'wss://devi-signal.onrender.com', // Your Live Signaling Server (Render)
+      'wss://signaling.yjs.dev' // Backup public server
     ]
   },
 

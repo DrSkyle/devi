@@ -1,23 +1,23 @@
 // src/stores/sync.js
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { defineStore as create } from '@/core/zustand'
 
-export const useSyncStore = defineStore('sync', () => {
+export const useSyncStore = create((set, get) => ({
   // States can be: 'synced', 'syncing', 'offline'
-  const status = ref('synced')
-  const isOnline = ref(navigator.onLine)
+  status: navigator.onLine ? 'synced' : 'offline',
+  isOnline: navigator.onLine,
 
-  function setStatus(newStatus) {
+  setStatus: (newStatus) => {
+    const state = get()
     // If we are offline, the status must remain 'offline'
-    if (isOnline.value) {
-      status.value = newStatus
+    if (state.isOnline) {
+      set({ status: newStatus })
     }
-  }
+  },
 
-  function setIsOnline(online) {
-    isOnline.value = online
-    status.value = online ? 'synced' : 'offline'
-  }
-
-  return { status, isOnline, setStatus, setIsOnline }
-})
+  setIsOnline: (online) => {
+    set({
+      isOnline: online,
+      status: online ? 'synced' : 'offline',
+    })
+  },
+}))

@@ -29,15 +29,25 @@ class NetworkService {
      // 2. Setup Persistence (Offline First)
      this.persistence = new IndexeddbPersistence('devi-network-v1', this.doc)
 
-     // 3. Setup WebRTC Provider
-     this.provider = new WebrtcProvider('devi-global-network-v1', this.doc, {
+     // 3. Connect to Default Global Lobby (for Search)
+     this.connectToRoom('devi-global-network-v1')
+  }
+
+  // Allow switching rooms (Global Lobby vs Private Pharmacy Circle)
+  connectToRoom(roomName: string) {
+     if (this.provider) {
+        this.provider.destroy()
+     }
+
+     console.log(`🔌 Connecting to Network Room: ${roomName}`)
+     this.provider = new WebrtcProvider(roomName, this.doc, {
          signaling: config.mesh.signalingUrls,
-         password: null
+         password: null,
+         maxConns: 20 + Math.floor(Math.random() * 15) // Avoid connectivity bottlenecks
      })
 
      this.awareness = this.provider.awareness
-
-     this.initialize()
+     this.initialize() // Re-attach listeners
   }
 
   private initialize() {
@@ -107,6 +117,12 @@ class NetworkService {
           lookingForHost: true,
           inviteCode: inviteCode
       })
+  }
+
+  // Specific helper for Pharmacy Login
+  joinPharmacyNetwork(pharmacyCode: string) {
+      const roomName = `devi-pharmacy-${pharmacyCode.toLowerCase()}`
+      this.connectToRoom(roomName)
   }
 
   // Configuration for Host Mode

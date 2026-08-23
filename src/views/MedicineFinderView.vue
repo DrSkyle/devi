@@ -490,7 +490,7 @@ const searchNetworkInventory = async () => {
   }
 }
 
-import { useCartStore } from '@/stores/cart'
+import { useCartStore } from '@/features/cart/store'
 
 const cartStore = useCartStore()
 

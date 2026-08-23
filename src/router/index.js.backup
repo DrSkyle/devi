@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { database } from '@/database'
 import { Q } from '@nozbe/watermelondb'
-import { useProfileStore } from '@/stores/profile'
-import { useStaffStore } from '@/stores/staff'
+import { useProfileStore } from '@/features/profile/store'
+import { useStaffStore } from '@/features/staff/store'
 
 const getUserAndProfile = async () => {
   const profileStore = useProfileStore()
@@ -13,8 +13,8 @@ const getUserAndProfile = async () => {
   let staffId = sessionStorage.getItem('activeStaffId')
 
   if (!isStaffSession) {
-      staffId = localStorage.getItem('persistentStaffId')
-      if (staffId) isStaffSession = true
+    staffId = localStorage.getItem('persistentStaffId')
+    if (staffId) isStaffSession = true
   }
 
   if (isStaffSession && staffId) {
@@ -49,12 +49,12 @@ const getUserAndProfile = async () => {
     try {
       const profiles = await database.get('profiles').query().fetch()
       if (profiles.length > 0) {
-         const localProfile = profiles[0]
-         profileStore.setProfile(localProfile)
-         return { user: { id: localProfile.userId }, profile: localProfile, isStaff: false }
+        const localProfile = profiles[0]
+        profileStore.setProfile(localProfile)
+        return { user: { id: localProfile.userId }, profile: localProfile, isStaff: false }
       }
     } catch (e) {
-      console.error("Error fetching local profile", e)
+      console.error('Error fetching local profile', e)
     }
   }
 
@@ -110,10 +110,22 @@ const router = createRouter({
       meta: { requiresAuth: true, showNav: true, roles: ['admin', 'pharmacist', 'cashier'] },
     },
     {
+      path: '/inventory/onboarding',
+      name: 'inventory-onboarding',
+      component: () => import('../views/InventoryOnboardingView.vue'),
+      meta: { requiresAuth: true, showNav: true, roles: ['admin', 'pharmacist'] },
+    },
+    {
       path: '/record-sale',
       name: 'record-sale',
       component: () => import('../views/RecordSaleView.vue'),
       meta: { requiresAuth: true, showNav: true, roles: ['admin', 'pharmacist', 'cashier'] },
+    },
+    {
+      path: '/mobile-terminal',
+      name: 'mobile-terminal',
+      component: () => import('../views/MobileTerminalView.vue'),
+      meta: { requiresAuth: true, showNav: false, roles: ['admin', 'pharmacist', 'cashier'] },
     },
     {
       path: '/customers',
@@ -346,19 +358,19 @@ router.beforeEach(async (to, from, next) => {
 
     // Existing logic continues...
     if (isStaff && to.name === 'profile-setup') {
-       // ... existing
-       next({ name: 'home' })
+      // ... existing
+      next({ name: 'home' })
     } else if (user && !profile && to.name !== 'profile-setup' && !isStaff) {
-       next({ name: 'profile-setup' })
+      next({ name: 'profile-setup' })
     } else if (user && profile && to.name === 'profile-setup') {
-       next({ name: 'home' })
+      next({ name: 'home' })
     } else {
-       // Role Check
-       if (to.meta.roles && !to.meta.roles.includes(activeRole)) {
-         next({ name: 'home' })
-       } else {
-         next()
-       }
+      // Role Check
+      if (to.meta.roles && !to.meta.roles.includes(activeRole)) {
+        next({ name: 'home' })
+      } else {
+        next()
+      }
     }
   }
 })

@@ -1,65 +1,66 @@
 // src/stores/prompt.js
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { defineStore as create } from '@/core/zustand'
 
-export const usePromptStore = defineStore('prompt', () => {
-  const isVisible = ref(false)
-  const title = ref('')
-  const message = ref('')
-  const inputType = ref(null) // 🧠 null = no input
-  const inputValue = ref('')
-  const mode = ref('prompt') // 👈 'prompt' or 'confirm'
+export const usePromptStore = create((set, get) => ({
+  isVisible: false,
+  title: '',
+  message: '',
+  inputType: null, // 🧠 null = no input
+  inputValue: '',
+  mode: 'prompt', // 👈 'prompt' or 'confirm'
+  resolvePromise: null,
+  rejectPromise: null,
 
-  let resolvePromise = null
-  let rejectPromise = null
-
-  function show(options) {
-    isVisible.value = true
-    title.value = options.title || 'Input Required'
-    message.value = options.message || ''
-    mode.value = options.type || 'prompt' // 👈 detect type
-
-    // only set input fields if prompt mode
-    if (mode.value === 'prompt') {
-      inputType.value = options.inputType || 'text'
-      inputValue.value = options.initialValue || ''
-    } else {
-      inputType.value = null
-      inputValue.value = ''
-    }
+  show: (options) => {
+    set({
+      isVisible: true,
+      title: options.title || 'Input Required',
+      message: options.message || '',
+      mode: options.type || 'prompt', // 👈 detect type
+      // only set input fields if prompt mode
+      inputType: options.type === 'prompt' ? options.inputType || 'text' : null,
+      inputValue: options.type === 'prompt' ? options.initialValue || '' : '',
+    })
 
     return new Promise((resolve, reject) => {
-      resolvePromise = resolve
-      rejectPromise = reject
+      // Store the resolve and reject functions in the state
+      set({ resolvePromise: resolve, rejectPromise: reject })
     })
-  }
+  },
 
-  function confirm() {
-    if (resolvePromise) {
+  confirm: () => {
+    const state = get()
+    if (state.resolvePromise) {
       // only return input value if there is an input
-      if (mode.value === 'prompt') resolvePromise(inputValue.value)
-      else resolvePromise(true)
+      if (state.mode === 'prompt') state.resolvePromise(state.inputValue)
+      else state.resolvePromise(true)
     }
-    reset()
-  }
+    set({
+      isVisible: false,
+      title: '',
+      message: '',
+      inputType: null,
+      inputValue: '',
+      mode: 'prompt',
+      resolvePromise: null,
+      rejectPromise: null,
+    })
+  },
 
-  function cancel() {
-    if (rejectPromise) {
-      rejectPromise('cancelled')
+  cancel: () => {
+    const state = get()
+    if (state.rejectPromise) {
+      state.rejectPromise('cancelled')
     }
-    reset()
-  }
-
-  function reset() {
-    isVisible.value = false
-    title.value = ''
-    message.value = ''
-    inputType.value = null
-    inputValue.value = ''
-    mode.value = 'prompt'
-    resolvePromise = null
-    rejectPromise = null
-  }
-
-  return { isVisible, title, message, inputType, inputValue, show, confirm, cancel, mode }
-})
+    set({
+      isVisible: false,
+      title: '',
+      message: '',
+      inputType: null,
+      inputValue: '',
+      mode: 'prompt',
+      resolvePromise: null,
+      rejectPromise: null,
+    })
+  },
+}))

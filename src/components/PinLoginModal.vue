@@ -26,8 +26,8 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useStaffStore } from '@/stores/staff'
-import { useProfileStore } from '@/stores/profile'
+import { useStaffStore } from '@/features/staff/store'
+import { useProfileStore } from '@/features/profile/store'
 import { useToast } from 'primevue/usetoast'
 import Dialog from 'primevue/dialog'
 import Button from 'primevue/button'

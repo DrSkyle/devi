@@ -29,7 +29,7 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import L from 'leaflet' // Import Leaflet library
 import 'leaflet/dist/leaflet.css' // Import Leaflet's CSS
 import { networkService } from '@/services/NetworkService'
-import { useProfileStore } from '@/stores/profile' // Your Pinia store for profile data
+import { useProfileStore } from '@/features/profile/store'
 import Card from 'primevue/card'
 
 const profileStore = useProfileStore()
@@ -55,23 +55,22 @@ const fetchMapData = async () => {
 
   // Mock location if missing (for dev/demo)
   if (currentLat == null || currentLon == null) {
-      console.warn('Location missing, defaulting to Kathmandu center')
-      centerCoordinates.value = [27.7172, 85.3240] 
+    console.warn('Location missing, defaulting to Kathmandu center')
+    centerCoordinates.value = [27.7172, 85.324]
   } else {
-      centerCoordinates.value = [currentLat, currentLon]
+    centerCoordinates.value = [currentLat, currentLon]
   }
 
   try {
     // Call the Network Service (P2P Discovery)
     const peers = await networkService.getNearbyPharmacies(
-        centerCoordinates.value[0], 
-        centerCoordinates.value[1], 
-        circleRadiusKm.value
+      centerCoordinates.value[0],
+      centerCoordinates.value[1],
+      circleRadiusKm.value,
     )
 
     nearbyPharmacies.value = peers || []
     initOrUpdateMap()
-    
   } catch (error) {
     console.error('Error fetching nearby pharmacies:', error)
   } finally {

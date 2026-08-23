@@ -1,0 +1,35 @@
+# Vector.dev Configuration for DEVI Pipeline
+# Streams structured logs from the API to ClickHouse
+
+sources:
+  # Simulate receiving structured JSON logs from the Go Backend via HTTP
+  go_api_logs:
+    type: "http_server"
+    address: "0.0.0.0:8081"
+    encoding: "json"
+
+transforms:
+  # Add timestamp and normalize fields
+  process_logs:
+    type: "remap"
+    inputs: ["go_api_logs"]
+    source: |
+      .timestamp = now()
+      .service = "devi-api"
+      .env = "production"
+
+sinks:
+  # Stream everything directly to ClickHouse (The Data Warehouse)
+  clickhouse_warehouse:
+    type: "clickhouse"
+    inputs: ["process_logs"]
+    endpoint: "http://devi_clickhouse:8123"
+    database: "default"
+    table: "api_telemetry"
+    skip_unknown_fields: true
+    auth:
+      strategy: "basic"
+      user: "default"
+      password: ""
+    healthcheck:
+      enabled: true

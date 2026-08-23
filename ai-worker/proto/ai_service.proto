@@ -1,0 +1,32 @@
+syntax = "proto3";
+package ai;
+
+service PredictionService {
+  rpc PredictDemand (DemandRequest) returns (DemandResponse);
+  rpc AnonymizeBatch (AnonymizeRequest) returns (AnonymizeResponse);
+}
+
+message DemandRequest {
+  string pharmacy_id = 1;
+  repeated string inventory_ids = 2;
+  int32 prediction_days = 3;
+}
+
+message DemandItem {
+  string inventory_id = 1;
+  int32 predicted_demand = 2;
+  float confidence_score = 3;
+}
+
+message DemandResponse {
+  repeated DemandItem items = 1;
+}
+
+message AnonymizeRequest {
+  repeated string patient_phone = 1;
+  repeated string patient_name = 2;
+}
+
+message AnonymizeResponse {
+  map<string, string> anonymized_map = 1;
+}

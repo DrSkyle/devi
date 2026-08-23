@@ -184,8 +184,8 @@ import InputNumber from 'primevue/inputnumber'
 import Calendar from 'primevue/calendar'
 import InputSwitch from 'primevue/inputswitch'
 
-import { useStaffStore } from '@/stores/staff'
-import { useProfileStore } from '@/stores/profile'
+import { useStaffStore } from '@/features/staff/store'
+import { useProfileStore } from '@/features/profile/store'
 
 const route = useRoute()
 const router = useRouter()

@@ -18,7 +18,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useStaffStore } from '@/stores/staff.js'
+import { useStaffStore } from '@/features/staff/store'
 import PinLoginModal from './PinLoginModal.vue'
 import Button from 'primevue/button'
 

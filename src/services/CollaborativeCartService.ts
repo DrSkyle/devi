@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { WebrtcProvider } from 'y-webrtc'
-import { useCartStore } from '@/stores/cart'
+import { useCartStore } from '@/features/cart/store'
 
 class CollaborativeCartService {
   private doc: Y.Doc

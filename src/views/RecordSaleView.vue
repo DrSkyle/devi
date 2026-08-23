@@ -472,24 +472,21 @@ onMounted(() => {
 })
 
 // State
-import { useCartStore } from '@/stores/cart'
-import { storeToRefs } from 'pinia'
+import { useCartStore } from '@/features/cart/store'
 
 const cartStore = useCartStore()
-const {
-  tabs,
-  activeTabId,
-  activeTab,
-  cart,
-  selectedCustomer,
-  discount,
-  patientName,
-  doctorName,
-  subtotal,
-  taxTotal,
-  grandTotal,
-  hasControlledItems,
-} = storeToRefs(cartStore)
+const tabs = cartStore.tabs
+const activeTabId = cartStore.activeTabId
+const activeTab = cartStore.getActiveTab()
+const cart = cartStore.getCart()
+const selectedCustomer = cartStore.selectedCustomer
+const discount = cartStore.discount
+const patientName = cartStore.patientName
+const doctorName = cartStore.doctorName
+const subtotal = cartStore.getSubtotal()
+const taxTotal = cartStore.getTaxTotal()
+const grandTotal = cartStore.getGrandTotal()
+const hasControlledItems = cartStore.hasControlledItems
 
 const { createNewTab, closeTab, switchTab, addToCart, updateQty, removeFromCart, clearCart } =
   cartStore

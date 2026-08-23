@@ -1,52 +1,44 @@
 // src/stores/notification.js
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { defineStore as create } from '@/core/zustand'
 
-export const useNotificationStore = defineStore('notification', () => {
-  const message = ref('')
-  const type = ref('') // 'success' or 'error'
-  const isVisible = ref(false)
-  let timeoutId = null
+export const useNotificationStore = create((set, get) => ({
+  message: '',
+  type: '', // 'success' or 'error'
+  isVisible: false,
+  timeoutId: null,
+  unreadCount: 0,
 
-  function showNotification(newMessage, newType = 'success') {
+  showNotification: (newMessage, newType = 'success') => {
+    const state = get()
     // If a notification is already showing, clear it first
-    if (timeoutId) {
-      clearTimeout(timeoutId)
+    if (state.timeoutId) {
+      clearTimeout(state.timeoutId)
     }
 
-    message.value = newMessage
-    type.value = newType
-    isVisible.value = true
+    set({
+      message: newMessage,
+      type: newType,
+      isVisible: true,
+    })
 
     // Automatically hide after 4 seconds
-    timeoutId = setTimeout(() => {
-      isVisible.value = false
+    const newTimeoutId = setTimeout(() => {
+      set({ isVisible: false })
     }, 4000)
-  }
 
-  // --- Broadcast Messages Logic ---
-  const unreadCount = ref(0)
+    set({ timeoutId: newTimeoutId })
+  },
 
-  async function checkUnreadMessages(pharmacyId) {
+  checkUnreadMessages: async (pharmacyId) => {
     if (!pharmacyId) return
 
     // Local-First: We don't check cloud notifications for now.
     // Future: Check 'notifications' collection in WatermelonDB.
-    unreadCount.value = 0
-  }
+    set({ unreadCount: 0 })
+  },
 
-  function markAsRead() {
-    unreadCount.value = 0
+  markAsRead: () => {
+    set({ unreadCount: 0 })
     localStorage.setItem('lastNotificationReadTime', new Date().toISOString())
-  }
-
-  return {
-    message,
-    type,
-    isVisible,
-    showNotification,
-    unreadCount,
-    checkUnreadMessages,
-    markAsRead,
-  }
-})
+  },
+}))

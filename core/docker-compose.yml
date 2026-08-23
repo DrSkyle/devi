@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL (The source of truth)
+  postgres:
+    image: postgres:15-alpine
+    container_name: devi_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: devi
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Mount the schema we created to initialize the DB automatically
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d devi']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devi_net
+
+  # 2. NATS JetStream (The event bus)
+  nats:
+    image: nats:2.10-alpine
+    container_name: devi_nats
+    command: '-js' # Enable JetStream
+    ports:
+      - '4222:4222' # Client connections
+      - '8222:8222' # HTTP management
+    volumes:
+      - natsdata:/data
+    networks:
+      - devi_net
+
+  # 3. Dragonfly (Redis replacement for Background Jobs/Asynq)
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    container_name: devi_dragonfly
+    ulimits:
+      memlock: -1
+    ports:
+      - '6379:6379'
+    networks:
+      - devi_net
+
+  # 4. Centrifugo (Real-Time WebSockets for DDA Approvals)
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    container_name: devi_centrifugo
+    command: centrifugo --config=config.json --admin
+    environment:
+      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=devi-secret-key-for-jwt-testing-12345
+      - CENTRIFUGO_ADMIN_PASSWORD=admin
+      - CENTRIFUGO_ADMIN_SECRET=admin-secret
+      - CENTRIFUGO_API_KEY=devi-api-key-12345
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./centrifugo-config.json:/centrifugo/config.json
+    networks:
+      - devi_net
+
+  # 5. TigerBeetle (The Financial Ledger)
+  tigerbeetle:
+    image: ghcr.io/tigerbeetle/tigerbeetle:latest
+    container_name: devi_tigerbeetle
+    command: ['start', '--addresses=0.0.0.0:3000', '--development']
+    ports:
+      - '3000:3000'
+    volumes:
+      - tbdata:/data
+    networks:
+      - devi_net
+
+  # 6. ClickHouse (The Data Warehouse)
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: devi_clickhouse
+    ports:
+      - '8123:8123'
+      - '9000:9000'
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - devi_net
+
+  # 7. Vector.dev (The WAL Tailer / Log Pipeline)
+  vector:
+    image: timberio/vector:0.34.0-alpine
+    container_name: devi_vector
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+    depends_on:
+      - clickhouse
+      - postgres
+    networks:
+      - devi_net
+
+volumes:
+  pgdata:
+  natsdata:
+  tbdata:
+  clickhouse_data:
+
+networks:
+  devi_net:
+    driver: bridge
