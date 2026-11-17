@@ -93,9 +93,14 @@ CREATE TABLE IF NOT EXISTS sale_items (
 -- 7. Audit Log (For Asynchronous DDA Compliance)
 CREATE TABLE IF NOT EXISTS dda_audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pharmacy_id UUID NOT NULL REFERENCES pharmacies(id) ON DELETE CASCADE,
     sale_item_id UUID REFERENCES sale_items(id) ON DELETE RESTRICT,
     cashier_id UUID REFERENCES staff_profiles(id),
     pharmacist_id UUID REFERENCES staff_profiles(id), -- Null until approved
     status VARCHAR(50) NOT NULL CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
-    approved_at TIMESTAMP WITH TIME ZONE
+    approved_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS dda_audit_logs_pharmacy_status_idx ON dda_audit_logs (pharmacy_id, status, created_at DESC);
