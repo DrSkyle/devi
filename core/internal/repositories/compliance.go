@@ -3,9 +3,21 @@ package repositories
 import (
 	"context"
 	"devi/core/internal/models"
+	"errors"
+
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// ddaLogSelect joins the audit entry to the staff member it belongs to. A
+// pending entry has no pharmacist yet, so the cashier who raised it is shown.
+const ddaLogSelect = `
+	SELECT d.id, COALESCE(ph.name, c.name, 'Unknown'), d.created_at, d.status
+	FROM dda_audit_logs d
+	LEFT JOIN staff_profiles c ON c.id = d.cashier_id
+	LEFT JOIN staff_profiles ph ON ph.id = d.pharmacist_id
+`
 
 type ComplianceRepository struct {
 	Pool *pgxpool.Pool
@@ -15,69 +27,78 @@ func NewComplianceRepository(pool *pgxpool.Pool) *ComplianceRepository {
 	return &ComplianceRepository{Pool: pool}
 }
 
-func (c *ComplianceRepository) GetPendingDDALogs(pharmacyID uuid.UUID) ([]*models.DDALog, error) {
-	rows, err := c.Pool.Query(context.Background(), `SELECT id, cashier_id, created_at, status FROM dda_audit_logs WHERE pharmacy_id = $1 AND status = 'PENDING' ORDER BY created_at DESC`, pharmacyID)
+// ListDDALogs returns the pharmacy's audit trail, newest first.
+func (c *ComplianceRepository) ListDDALogs(ctx context.Context, pharmacyID uuid.UUID, limit int) ([]models.DDALogView, error) {
+	rows, err := c.Pool.Query(ctx, ddaLogSelect+`
+		WHERE d.pharmacy_id = $1
+		ORDER BY d.created_at DESC
+		LIMIT $2`, pharmacyID, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var logs []*models.DDALog
+	logs := make([]models.DDALogView, 0, limit)
 	for rows.Next() {
-		log := &models.DDALog{}
-		if err := rows.Scan(&log.ID, &log.CashierID, &log.CreatedAt, &log.Status); err != nil {
+		var log models.DDALogView
+		if err := rows.Scan(&log.ID, &log.StaffName, &log.Timestamp, &log.Status); err != nil {
 			return nil, err
 		}
 		logs = append(logs, log)
 	}
-
-	return logs, nil
+	return logs, rows.Err()
 }
 
-func (c *ComplianceRepository) GetApprovedDDALogs(pharmacyID uuid.UUID) ([]*models.DDALog, error) {
-	rows, err := c.Pool.Query(context.Background(), `SELECT id, cashier_id, created_at, status FROM dda_audit_logs WHERE pharmacy_id = $1 AND status = 'APPROVED' ORDER BY created_at DESC`, pharmacyID)
+// DDAStats counts the pending queue and today's decisions for a pharmacy.
+func (c *ComplianceRepository) DDAStats(ctx context.Context, pharmacyID uuid.UUID) (models.DDAStats, error) {
+	var stats models.DDAStats
+	err := c.Pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE status = 'PENDING'),
+			COUNT(*) FILTER (WHERE status = 'APPROVED' AND approved_at >= date_trunc('day', now())),
+			COUNT(*) FILTER (WHERE status = 'REJECTED' AND approved_at >= date_trunc('day', now()))
+		FROM dda_audit_logs
+		WHERE pharmacy_id = $1`, pharmacyID).Scan(&stats.Pending, &stats.ApprovedToday, &stats.RejectedToday)
+	if err != nil {
+		return models.DDAStats{}, err
+	}
+	return stats, nil
+}
+
+// DecideDDALog moves a PENDING entry to APPROVED or REJECTED, recording who
+// decided it and when. Only the pharmacy that owns the entry may decide it.
+func (c *ComplianceRepository) DecideDDALog(ctx context.Context, pharmacyID, logID, pharmacistID uuid.UUID, status models.DDALogStatus) (*models.DDALogView, error) {
+	var log models.DDALogView
+	err := c.Pool.QueryRow(ctx, `
+		WITH decided AS (
+			UPDATE dda_audit_logs
+			SET status = $3, pharmacist_id = $4, approved_at = now(), updated_at = now()
+			WHERE id = $2 AND pharmacy_id = $1 AND status = 'PENDING'
+			RETURNING id, cashier_id, created_at, status
+		)
+		SELECT decided.id, COALESCE(ph.name, c.name, 'Unknown'), decided.created_at, decided.status
+		FROM decided
+		LEFT JOIN staff_profiles c ON c.id = decided.cashier_id
+		LEFT JOIN staff_profiles ph ON ph.id = $4`, pharmacyID, logID, status, pharmacistID).
+		Scan(&log.ID, &log.StaffName, &log.Timestamp, &log.Status)
+	if err == nil {
+		return &log, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+
+	// The update matched nothing: either the entry belongs to another pharmacy
+	// or it has already been decided. Report which, so the caller can 404 vs 409.
+	var current models.DDALogStatus
+	err = c.Pool.QueryRow(ctx, `
+		SELECT status FROM dda_audit_logs WHERE id = $1 AND pharmacy_id = $2`,
+		logID, pharmacyID).Scan(&current)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, models.ErrDDANotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var logs []*models.DDALog
-	for rows.Next() {
-		log := &models.DDALog{}
-		if err := rows.Scan(&log.ID, &log.CashierID, &log.CreatedAt, &log.Status); err != nil {
-			return nil, err
-		}
-		logs = append(logs, log)
-	}
-
-	return logs, nil
-}
-
-func (c *ComplianceRepository) GetRejectedDDALogs(pharmacyID uuid.UUID) ([]*models.DDALog, error) {
-	rows, err := c.Pool.Query(context.Background(), `SELECT id, cashier_id, created_at, status FROM dda_audit_logs WHERE pharmacy_id = $1 AND status = 'REJECTED' ORDER BY created_at DESC`, pharmacyID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var logs []*models.DDALog
-	for rows.Next() {
-		log := &models.DDALog{}
-		if err := rows.Scan(&log.ID, &log.CashierID, &log.CreatedAt, &log.Status); err != nil {
-			return nil, err
-		}
-		logs = append(logs, log)
-	}
-
-	return logs, nil
-}
-
-func (c *ComplianceRepository) ApproveDDA(pharmacyID, logID uuid.UUID) error {
-	_, err := c.Pool.Exec(context.Background(), `UPDATE dda_audit_logs SET status = 'APPROVED' WHERE pharmacy_id = $1 AND id = $2`, pharmacyID, logID)
-	return err
-}
-
-func (c *ComplianceRepository) RejectDDA(pharmacyID, logID uuid.UUID) error {
-	_, err := c.Pool.Exec(context.Background(), `UPDATE dda_audit_logs SET status = 'REJECTED' WHERE pharmacy_id = $1 AND id = $2`, pharmacyID, logID)
-	return err
+	return nil, models.ErrDDAAlreadyDecided
 }

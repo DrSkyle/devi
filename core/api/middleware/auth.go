@@ -4,7 +4,6 @@ import (
 	"log"
 	"strings"
 
-
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -15,7 +14,7 @@ var jwks keyfunc.Keyfunc
 // InitAuth initializes the JWKS fetcher for Zitadel
 func InitAuth(zitadelDomain string) {
 	jwksURL := zitadelDomain + "/oauth/v2/keys"
-	
+
 	// Create a new keyfunc instance
 	var err error
 	jwks, err = keyfunc.NewDefault([]string{jwksURL})
@@ -72,6 +71,7 @@ func AuthMiddleware() fiber.Handler {
 		}
 
 		// Extract context variables from claims
+		staffID, _ := claims["sub"].(string)
 		kioskID, _ := claims["kiosk_id"].(string)
 		pharmacyID, _ := claims["pharmacy_id"].(string)
 		role, _ := claims["role"].(string)
@@ -84,6 +84,7 @@ func AuthMiddleware() fiber.Handler {
 		}
 
 		// Store variables in Fiber context for subsequent handlers
+		c.Locals("staff_id", staffID)
 		c.Locals("kiosk_id", kioskID)
 		c.Locals("pharmacy_id", pharmacyID)
 		c.Locals("role", role)

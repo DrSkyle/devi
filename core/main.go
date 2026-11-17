@@ -97,13 +97,16 @@ func main() {
 	complianceRepo := repositories.NewComplianceRepository(dbPool)
 	analyticsRepo := repositories.NewAnalyticsRepository(dbPool)
 
+	// Publishers (Real-time)
+	publisher := services.NewCentrifugoPublisher()
+	if nc != nil {
+		publisher = services.NewCentrifugoPublisherWithNATS(nc)
+	}
+
 	// Services (The "Brain")
 	inventoryService := coreServices.NewInventoryService(inventoryRepo)
 	posService := coreServices.NewPOSService(saleRepo, inventoryService)
-	complianceService := coreServices.NewComplianceService(complianceRepo)
-
-	// Publishers (Real-time)
-	publisher := services.NewCentrifugoPublisher()
+	complianceService := coreServices.NewComplianceService(complianceRepo, publisher)
 
 	// Start Server
 	app := fiber.New(fiber.Config{
@@ -130,8 +133,14 @@ func main() {
 	_, _ = dbPool.Exec(ctx, "ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;")
 	_, _ = dbPool.Exec(ctx, "ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;")
 
+	// The DDA audit log predates pharmacy scoping and timestamps; align existing installs.
+	_, _ = dbPool.Exec(ctx, "ALTER TABLE dda_audit_logs ADD COLUMN IF NOT EXISTS pharmacy_id UUID REFERENCES pharmacies(id) ON DELETE CASCADE;")
+	_, _ = dbPool.Exec(ctx, "ALTER TABLE dda_audit_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();")
+	_, _ = dbPool.Exec(ctx, "ALTER TABLE dda_audit_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();")
+	_, _ = dbPool.Exec(ctx, "CREATE INDEX IF NOT EXISTS dda_audit_logs_pharmacy_status_idx ON dda_audit_logs (pharmacy_id, status, created_at DESC);")
+
 	state := &AppState{DB: dbPool, NATS: nc, JS: js}
-	setupRoutes(app, state, posService, complianceService, analyticsRepo, inventoryRepo, complianceRepo, publisher)
+	setupRoutes(app, state, posService, complianceService, analyticsRepo, inventoryRepo, publisher)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -143,7 +152,7 @@ func main() {
 	}
 }
 
-func setupRoutes(app *fiber.App, state *AppState, posService *coreServices.POSService, complianceService *coreServices.ComplianceService, analyticsRepo *repositories.AnalyticsRepository, inventoryRepo *repositories.InventoryRepository, complianceRepo *repositories.ComplianceRepository, publisher services.Publisher) {
+func setupRoutes(app *fiber.App, state *AppState, posService *coreServices.POSService, complianceService *coreServices.ComplianceService, analyticsRepo *repositories.AnalyticsRepository, inventoryRepo *repositories.InventoryRepository, publisher services.Publisher) {
 	api := app.Group("/api/v1")
 
 	api.Get("/health", func(c *fiber.Ctx) error {
@@ -192,7 +201,8 @@ func setupRoutes(app *fiber.App, state *AppState, posService *coreServices.POSSe
 
 	// Compliance
 	compliance := protected.Group("/compliance")
-	complianceHandler := handlers.NewComplianceHandler(complianceRepo)
-	compliance.Get("/dda-logs", complianceHandler.GetPendingDDALogs)
-	compliance.Post("/dda-logs/:id/approve", complianceHandler.ApproveDDARequest)
+	complianceHandler := handlers.NewComplianceHandler(complianceService)
+	compliance.Get("/dda-logs", complianceHandler.GetDDALogs)
+	compliance.Post("/dda-logs/:id/approve", middleware.RoleMiddleware("PHARMACIST", "OWNER"), complianceHandler.ApproveDDARequest)
+	compliance.Post("/dda-logs/:id/reject", middleware.RoleMiddleware("PHARMACIST", "OWNER"), complianceHandler.RejectDDARequest)
 }

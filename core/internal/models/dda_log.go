@@ -1,23 +1,12 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-// DDALog represents a Drug and Drug Administration audit log entry.
-type DDALog struct {
-	ID           uuid.UUID    `json:"id"`
-	PharmacyID   uuid.UUID    `json:"pharmacy_id"`
-	CashierID    uuid.UUID    `json:"cashier_id"`
-	PharmacistID *uuid.UUID   `json:"pharmacist_id,omitempty"`
-	SaleID       uuid.UUID    `json:"sale_id"`
-	Status       DDALogStatus `json:"status"`
-	Reason       string       `json:"reason,omitempty"`
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
-}
-
+// DDALogStatus is the lifecycle state of a Drug and Drug Administration audit entry.
 type DDALogStatus string
 
 const (
@@ -25,3 +14,18 @@ const (
 	DDALogStatusApproved DDALogStatus = "APPROVED"
 	DDALogStatusRejected DDALogStatus = "REJECTED"
 )
+
+// DDALogView is a DDA audit entry as rendered by the compliance dashboard.
+type DDALogView struct {
+	ID        uuid.UUID    `json:"id"`
+	StaffName string       `json:"staffName"`
+	Timestamp time.Time    `json:"timestamp"`
+	Status    DDALogStatus `json:"status"`
+}
+
+// DDAStats summarises the pharmacy's DDA queue for the dashboard KPIs.
+type DDAStats struct {
+	Pending       int
+	ApprovedToday int
+	RejectedToday int
+}
